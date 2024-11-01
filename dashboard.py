@@ -2,367 +2,297 @@ import zstandard
 from functionalities.get_synaptic_partners import get_synaptic_partners
 from functionalities.update_outdated import update_outdated
 from functionalities.get_all_annotations import get_all_annotations
-from tkinter import ttk, LabelFrame, Label, Text, Button, Entry, Frame, LEFT, RIGHT, X, W, Y, Tk, END
+import customtkinter as ctk
 from api_token import API_TOKEN
 import pyarrow as pa
 import pandas as pd
 import requests
-import json
 from datetime import datetime
 import threading
 
-
 # Style constants
-PRIMARY_COLOR = '#2196F3'    # Material Design Blue
-SECONDARY_COLOR = 'orange'  # Material Design Amber
-BG_COLOR = '#FAFAFA'        # Light gray background
-TEXT_COLOR = '#212121'      # Dark gray text
-BUTTON_BG_COLOR = SECONDARY_COLOR
-BUTTON_FG_COLOR = 'white'
-BUTTON_FONT_SIZE = 12
-BUTTON_PADDING = 8
-FRAME_PADDING_X = 15
-FRAME_PADDING_Y = 10
-TEXT_HEIGHT_SMALL = 8
-TEXT_HEIGHT_LARGE = 12
-FRAME_WIDTH = 480          # Slightly wider frames
-FRAME_HEIGHT = 800
-FONT_FAMILY = "Segoe UI"   # Modern font
-FONT_SIZE = 10
+BUTTON_PADDING = 12
+FRAME_WIDTH = 600       # Wider frames for better spacing
+FRAME_HEIGHT = 850      # Taller frames
+FONT_FAMILY = "Roboto"    # Modern Google font
+FONT_SIZE = 12
 FONT_WEIGHT = 'bold'
-CORNER_RADIUS = 8         # Rounded corners
-
-class ModernButton(Button):
-    def __init__(self, master=None, **kwargs):
-        super().__init__(master, **kwargs)
-        self.config(
-            relief='flat',
-            borderwidth=0,
-            padx=15,
-            pady=8,
-            cursor='hand2'  # Hand cursor on hover
-        )
-        self.bind('<Enter>', self.on_enter)
-        self.bind('<Leave>', self.on_leave)
-
-    def on_enter(self, e):
-        self['background'] = '#1976D2'  # Darker shade on hover
-
-    def on_leave(self, e):
-        self['background'] = BUTTON_BG_COLOR
-
-
-# Global variable to store results
+TEXT_FIELD_WIDTH = 580
+TEXT_FIELD_HEIGHT = 150
+LARGE_BUTTON_WIDTH = 380
+SMALL_BUTTON_WIDTH = 200
+BUTTON_HEIGHT = 35
+PADDING_X = 20
+# Global variables
 entries_result = None
 loading_indicator = None
 
+
 def show_loading_indicator(root):
-    global loading_indicator
-    if not loading_indicator:
-        loading_indicator = ttk.Progressbar(root, mode='indeterminate', length=200)
-        loading_indicator.place(relx=0.5, rely=0.95, anchor='center')
-    loading_indicator.start()
+  """Display an indeterminate progress bar"""
+  global loading_indicator
+  if not loading_indicator:
+    loading_indicator = ctk.CTkProgressBar(
+      root,
+      mode='indeterminate',
+      width=LARGE_BUTTON_WIDTH,
+    )
+    loading_indicator.place(relx=0.5, rely=0.95, anchor='center')
+  loading_indicator.start()
 
 def hide_loading_indicator():
-    global loading_indicator
-    if loading_indicator:
-        loading_indicator.stop()
-        loading_indicator.place_forget()
+  """Hide and destroy the loading indicator"""
+  global loading_indicator
+  if loading_indicator:
+    loading_indicator.stop()
+    loading_indicator.place_forget()
+    loading_indicator = None
 
 def get_entries(table_name, root):
-    #global entries_result
-    threading.Thread(target=lambda: make_request(table_name, root), daemon=True).start()
+  """Start request in separate thread"""
+  threading.Thread(target=lambda: make_request(table_name, root), daemon=True).start()
 
 def make_request(table_name, root):
-    global entries_result
-    try:
-        show_loading_indicator(root)
-        
-        url = "https://cave.fanc-fly.com/materialize/api/v3/datastack/brain_and_nerve_cord/query"
-        params = {
-            "return_pyarrow": "True",
-            "arrow_format": "True", 
-            "merge_reference": "False",
-            "allow_missing_lookups": "False",
-            "allow_invalid_root_ids": "False"
-        }
-        
-        headers = {
-            'Content-Type': 'application/json',
-            'Accept-Encoding': 'zstd',
-            'Authorization': f'Bearer {API_TOKEN}',
-            'Cookie': f'middle_auth_token={API_TOKEN}'
-        }
-        
-        data = {
-            "table": table_name,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        response = requests.post(url, params=params, headers=headers, json=data)
-        arrow_data = pa.BufferReader(response.content)  # No decompression
-        entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
-        print(entries_result)
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        hide_loading_indicator()
-
-    # Run request in separate thread to prevent GUI freezing
+  """Make API request with error handling"""
+  global entries_result
+  try:
+    show_loading_indicator(root)
     
+    url = "https://cave.fanc-fly.com/materialize/api/v3/datastack/brain_and_nerve_cord/query"
+    params = {
+      "return_pyarrow": "True",
+      "arrow_format": "True", 
+      "merge_reference": "False",
+      "allow_missing_lookups": "False",
+      "allow_invalid_root_ids": "False"
+    }
+    
+    headers = {
+      'Content-Type': 'application/json',
+      'Accept-Encoding': 'zstd',
+      'Authorization': f'Bearer {API_TOKEN}',
+      'Cookie': f'middle_auth_token={API_TOKEN}'
+    }
+    
+    data = {
+      "table": table_name,
+      "timestamp": datetime.now().isoformat()
+    }
+    
+    response = requests.post(url, params=params, headers=headers, json=data)
+    arrow_data = pa.BufferReader(response.content)
+    entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
+    print(entries_result)
+  except Exception as e:
+    print(f"Error: {e}")
+  finally:
+    hide_loading_indicator()
 
 def create_annotated_section(root, x, y):
-    style = ttk.Style()
-    style.configure('Modern.TLabelframe', background=BG_COLOR)
+  """Create the annotated section with modern styling"""
+  frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+  frame.place(x=x, y=y)
+  
+  get_ann_btn = ctk.CTkButton(frame, text="Get All Annotations",
+    command=lambda: get_entries("cell_info", root),
+    width=LARGE_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT)
+  get_ann_btn.pack(pady=(BUTTON_PADDING,20), padx=PADDING_X, fill='x')
+  
+  search_frame = ctk.CTkFrame(frame)
+  search_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
+  
+  search_entry = ctk.CTkEntry(search_frame, width=200, height=BUTTON_HEIGHT)
+  search_entry.pack(side='left', expand=True, fill='x', padx=(0,BUTTON_PADDING))
+  
+  def search_entries():
+    """Search functionality with improved matching"""
+    search_text = search_entry.get().strip()
+    if not search_text:
+      return
+      
+    search_terms = [term.strip() for term in search_text.replace(';',',').split(',')]
+    search_terms = set(filter(None, search_terms))
     
-    frame = LabelFrame(root, text="", padx=FRAME_PADDING_X, pady=FRAME_PADDING_Y, 
-                      font=(FONT_FAMILY, FONT_SIZE), bg=BG_COLOR)
-    frame.place(x=x, y=y, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-    
-    get_ann_btn = ModernButton(frame, text="Get All Annotations", 
-                              bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                              font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    get_ann_btn.pack(pady=(BUTTON_PADDING,10), fill=X)
-    get_ann_btn.config(command=lambda: get_entries("cell_info", root))
-    
-    search_frame = Frame(frame, bg=BG_COLOR)
-    search_frame.pack(fill=X, pady=BUTTON_PADDING)
-    search_entry = Entry(search_frame, font=(FONT_FAMILY, FONT_SIZE),
-                        relief='solid', bd=1)
-    search_entry.pack(side=LEFT, expand=True, fill=X, padx=(0,BUTTON_PADDING))
-    
-    def search_entries():
-        search_text = search_entry.get().strip()
-        if not search_text:
-            return
-            
-        # Split on comma or semicolon and clean up whitespace
-        search_terms = [term.strip() for term in search_text.replace(';',',').split(',')]
-        search_terms = set(filter(None, search_terms))  # Remove empty strings and make unique
+    matching_rows = []
+    for _, row in entries_result.iterrows():
+      if row['tag'] in search_terms:
+        matching_rows.append(row['pt_root_id'])
+        continue
         
-        matching_rows = []
-        for _, row in entries_result.iterrows():
-            # Check tag column for exact match
-            if row['tag'] in search_terms:
-                matching_rows.append(row['pt_root_id'])
-                continue
-                
-            # Split tag2 on spaces and check for matches
-            if pd.notna(row['tag2']):  # Check if tag2 is not NaN
-                tag2_terms = set(row['tag2'].split())
-                if tag2_terms & search_terms:  # Check for intersection
-                    matching_rows.append(row['pt_root_id'])
-        
-        # Display matching rows in results field
-        results.delete('1.0', END)
-        if matching_rows:
-            results.insert('1.0', '\n'.join(str(row_id) for row_id in matching_rows))
-        else:
-            results.insert('1.0', 'No matches found')
+      if pd.notna(row['tag2']):
+        tag2_terms = set(row['tag2'].split())
+        if tag2_terms & search_terms:
+          matching_rows.append(row['pt_root_id'])
     
-    find_button = ModernButton(search_frame, text="Find",
-                              bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                              font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT),
-                              command=search_entries)
-    find_button.pack(side=RIGHT)
-    
-    Label(frame, text="Results", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W, pady=(10,5))
-    
-    results = Text(frame, height=TEXT_HEIGHT_LARGE, font=(FONT_FAMILY, FONT_SIZE),
-                  relief='solid', bd=1)
-    results.pack(pady=BUTTON_PADDING, fill=X)
-    
-    def copy_results():
-        # Get content from results text widget
-        content = results.get('1.0', END).strip()
-        if content:
-            # Split on newlines and join with comma-space
-            formatted_content = ', '.join(content.split('\n'))
-            # Copy to clipboard
-            root.clipboard_clear()
-            root.clipboard_append(formatted_content)
-            root.update()
+    results.delete('1.0', 'end')
+    if matching_rows:
+      results.insert('1.0', '\n'.join(str(row_id) for row_id in matching_rows))
+    else:
+      results.insert('1.0', 'No matches found')
+  
+  find_button = ctk.CTkButton(search_frame, text="Find",
+    command=search_entries,
+    width=SMALL_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT)
+  find_button.pack(side='right')
+  
+  results_label = ctk.CTkLabel(frame, text="Results", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  results_label.pack(anchor='w', padx=PADDING_X)
+  
+  results = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  results.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  def copy_results():
+    """Copy results with improved formatting"""
+    content = results.get('1.0', 'end').strip()
+    if content:
+      formatted_content = ', '.join(content.split('\n'))
+      root.clipboard_clear()
+      root.clipboard_append(formatted_content)
+      root.update()
 
-    copy_btn = ModernButton(frame, text="Copy",
-                           bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                           font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT),
-                           command=copy_results)
-    copy_btn.pack(pady=BUTTON_PADDING, fill=X)
+  copy_btn = ctk.CTkButton(frame, text="Copy",
+    command=copy_results,
+    width=LARGE_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT)
+  copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
-def create_synaptic_section(root, x, y):
-    frame = LabelFrame(root, text="", 
-                      padx=FRAME_PADDING_X, pady=FRAME_PADDING_Y,
-                      font=(FONT_FAMILY, FONT_SIZE, "bold"), bg=BG_COLOR)
-    frame.place(x=x, y=y, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-    
-    Label(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    source = Text(frame, height=TEXT_HEIGHT_SMALL, font=(FONT_FAMILY, FONT_SIZE),
-                 relief='solid', bd=1)
-    source.pack(pady=BUTTON_PADDING, fill=X)
-    
-    get_partners_btn = ModernButton(frame, text="Get Partners",
-                                   bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                                   font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    get_partners_btn.pack(pady=BUTTON_PADDING, fill=X)
-    
-    Label(frame, text="Partners", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    partners = Text(frame, height=TEXT_HEIGHT_SMALL, font=(FONT_FAMILY, FONT_SIZE),
-                   relief='solid', bd=1)
-    partners.pack(pady=BUTTON_PADDING, fill=X)
-    
-    button_frame = Frame(frame, bg=BG_COLOR)
-    button_frame.pack(fill=X, pady=BUTTON_PADDING)
-    
-    copy_btn = ModernButton(button_frame, text="Copy",
-                           bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                           font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    copy_btn.pack(side=LEFT, padx=(0,BUTTON_PADDING))
-    
-    partners_btn = ModernButton(button_frame, text="Get Partners of Partners",
-                               bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                               font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    partners_btn.pack(side=LEFT, padx=(0,BUTTON_PADDING))
-    
-    entry = Entry(button_frame, width=5, font=(FONT_FAMILY, FONT_SIZE),
-                 relief='solid', bd=1)
-    entry.pack(side=LEFT)
-    
-    Label(frame, text="Partners of Most Common Partners",
-          font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    common_partners = Text(frame, height=TEXT_HEIGHT_SMALL,
-                          font=(FONT_FAMILY, FONT_SIZE),
-                          relief='solid', bd=1)
-    common_partners.pack(pady=BUTTON_PADDING, fill=X)
-    
-    copy_btn2 = ModernButton(frame, text="Copy",
-                            bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                            font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    copy_btn2.pack(pady=BUTTON_PADDING, fill=X)
+
+def create_synaptic_partners_section(root, x, y):
+  """Create the synaptic partners section with modern styling"""
+  frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+  frame.place(x=x, y=y)
+  
+  source_label = ctk.CTkLabel(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  source_label.pack(anchor='w', padx=PADDING_X)
+  
+  source = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  source.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  get_partners_btn = ctk.CTkButton(frame, text="Get Partners", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  get_partners_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  partners_label = ctk.CTkLabel(frame, text="Partners", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  partners_label.pack(anchor='w', padx=PADDING_X)
+  
+  partners = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  button_frame = ctk.CTkFrame(frame)
+  button_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
+  
+  copy_btn = ctk.CTkButton(button_frame, text="Copy", width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  copy_btn.pack(side='left', padx=(0,BUTTON_PADDING))
+  
+  number_of_partners = ctk.CTkEntry(button_frame, width=100, height=BUTTON_HEIGHT)
+  number_of_partners.pack(side='right')
+
+  partners_btn = ctk.CTkButton(button_frame, text="Get Partners of Partners", width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  partners_btn.pack(side='right', padx=(0,BUTTON_PADDING))
+  
+  common_label = ctk.CTkLabel(frame, text="Partners of Most Common Partners", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  common_label.pack(anchor='w', padx=PADDING_X)
+  
+  common_partners = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  common_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  copy_btn2 = ctk.CTkButton(frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  copy_btn2.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+
 
 def create_outdated_section(root, x, y):
-    frame = LabelFrame(root, text="",
-                      padx=FRAME_PADDING_X, pady=FRAME_PADDING_Y,
-                      font=(FONT_FAMILY, FONT_SIZE, "bold"), bg=BG_COLOR)
-    frame.place(x=x, y=y, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-    
-    Label(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    source = Text(frame, height=TEXT_HEIGHT_LARGE, font=(FONT_FAMILY, FONT_SIZE),
-                 relief='solid', bd=1)
-    source.pack(pady=BUTTON_PADDING, fill=X)
-    
-    update_btn = ModernButton(frame, text="Update",
-                             bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                             font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    update_btn.pack(pady=BUTTON_PADDING, fill=X)
-    
-    Label(frame, text="Source Without Outdated",
-          font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    results = Text(frame, height=TEXT_HEIGHT_LARGE, font=(FONT_FAMILY, FONT_SIZE),
-                  relief='solid', bd=1)
-    results.pack(pady=BUTTON_PADDING, fill=X)
-    
-    copy_btn = ModernButton(frame, text="Copy",
-                           bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                           font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    copy_btn.pack(pady=BUTTON_PADDING, fill=X)
-    
-    Label(frame, text="Updated", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    updated = Text(frame, height=TEXT_HEIGHT_SMALL, font=(FONT_FAMILY, FONT_SIZE),
-                  relief='solid', bd=1)
-    updated.pack(pady=BUTTON_PADDING, fill=X)
-    
-    copy_btn2 = ModernButton(frame, text="Copy",
-                            bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                            font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    copy_btn2.pack(pady=BUTTON_PADDING, fill=X)
+  """Create the outdated section with modern styling"""
+  frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+  frame.place(x=x, y=y)
+  
+  source_label = ctk.CTkLabel(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  source_label.pack(anchor='w', padx=PADDING_X)
+  
+  source = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  source.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  update_btn = ctk.CTkButton(frame, text="Update", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  update_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  results_label = ctk.CTkLabel(frame, text="Source Without Outdated", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  results_label.pack(anchor='w', padx=PADDING_X)
+  
+  results = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  results.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  copy_btn = ctk.CTkButton(frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  updated_label = ctk.CTkLabel(frame, text="Updated", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  updated_label.pack(anchor='w', padx=PADDING_X)
+  
+  updated = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  updated.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  copy_btn2 = ctk.CTkButton(frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  copy_btn2.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+
 
 def create_proofread_section(root, x, y):
-    frame = LabelFrame(root, text="",
-                      padx=FRAME_PADDING_X, pady=FRAME_PADDING_Y,
-                      font=(FONT_FAMILY, FONT_SIZE, "bold"), bg=BG_COLOR)
-    frame.place(x=x, y=y, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-    
-    Label(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    source = Text(frame, height=TEXT_HEIGHT_LARGE, font=(FONT_FAMILY, FONT_SIZE),
-                 relief='solid', bd=1)
-    source.pack(pady=BUTTON_PADDING, fill=X)
-    
-    get_btn = ModernButton(frame, text="Get",
-                          bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                          font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    get_btn.pack(pady=BUTTON_PADDING, fill=X)
-    
-    Label(frame, text="Proofread", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    proofread = Text(frame, height=TEXT_HEIGHT_LARGE, font=(FONT_FAMILY, FONT_SIZE),
-                     relief='solid', bd=1)
-    proofread.pack(pady=BUTTON_PADDING, fill=X)
-    
-    copy_btn = ModernButton(frame, text="Copy",
-                           bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                           font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    copy_btn.pack(pady=BUTTON_PADDING, fill=X)
-    
-    Label(frame, text="Not Proofread", font=(FONT_FAMILY, FONT_SIZE, "bold"),
-          bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor=W)
-    
-    not_proofread = Text(frame, height=TEXT_HEIGHT_SMALL,
-                         font=(FONT_FAMILY, FONT_SIZE),
-                         relief='solid', bd=1)
-    not_proofread.pack(pady=BUTTON_PADDING, fill=X)
-    
-    copy_btn2 = ModernButton(frame, text="Copy",
-                            bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR,
-                            font=(FONT_FAMILY, BUTTON_FONT_SIZE, FONT_WEIGHT))
-    copy_btn2.pack(pady=BUTTON_PADDING, fill=X)
+  """Create the proofread section with modern styling"""
+  frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+  frame.place(x=x, y=y)
+  
+  source_label = ctk.CTkLabel(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  source_label.pack(anchor='w', padx=PADDING_X)
+  
+  source = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  source.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  get_btn = ctk.CTkButton(frame, text="Get", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  get_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  proofread_label = ctk.CTkLabel(frame, text="Proofread", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  proofread_label.pack(anchor='w', padx=PADDING_X)
+  
+  proofread = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  proofread.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  copy_btn = ctk.CTkButton(frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  not_proofread_label = ctk.CTkLabel(frame, text="Not Proofread", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  not_proofread_label.pack(anchor='w', padx=PADDING_X)
+  
+  not_proofread = ctk.CTkTextbox(frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
+  not_proofread.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  
+  copy_btn2 = ctk.CTkButton(frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  copy_btn2.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+
 
 def main():
-    root = Tk()
-    root.geometry('500x900')
-    root.title('Dashboard')
-    root.configure(bg=BG_COLOR)
-    
-    style = ttk.Style()
-    style.theme_use('default')
-    style.configure('TNotebook', background=BG_COLOR)
-    style.configure('TNotebook.Tab', padding=[6, 4], font=(FONT_FAMILY, FONT_SIZE))
-    
-    notebook = ttk.Notebook(root)
-    notebook.pack(expand=True, fill='both', padx=10, pady=10)
-    
-    annotated_frame = Frame(notebook, bg=BG_COLOR)
-    synaptic_frame = Frame(notebook, bg=BG_COLOR)
-    outdated_frame = Frame(notebook, bg=BG_COLOR)
-    proofread_frame = Frame(notebook, bg=BG_COLOR)
-    
-    notebook.add(annotated_frame, text='Find Annotated')
-    notebook.add(synaptic_frame, text='Get Synaptic Partners')
-    notebook.add(outdated_frame, text='Update Outdated')
-    notebook.add(proofread_frame, text='Find Proofread')
-    
-    create_annotated_section(annotated_frame, 0, 0)
-    create_synaptic_section(synaptic_frame, 0, 0)
-    create_outdated_section(outdated_frame, 0, 0)
-    create_proofread_section(proofread_frame, 0, 0)
-    
-    root.mainloop()
+  """Initialize and run the main application"""
+  ctk.set_appearance_mode("light")
+  ctk.set_default_color_theme("blue")
+  
+  root = ctk.CTk()
+  root.geometry('650x850')  # Wider window
+  root.title('Neuron Dashboard')
+  
+  tabview = ctk.CTkTabview(root)
+  tabview.pack(expand=True, fill='both', padx=10, pady=10)
+  
+  # Create tabs
+  tabs = {
+    'annotated': tabview.add('Find Annotated'),
+    'synaptic': tabview.add('Synaptic Partners'),
+    'outdated': tabview.add('Update Outdated'),
+    'proofread': tabview.add('Find Proofread')
+  }
+  
+  # Create sections
+  create_annotated_section(tabs['annotated'], 0, 0)
+  create_synaptic_partners_section(tabs['synaptic'], 0, 0)
+  create_outdated_section(tabs['outdated'], 0, 0)
+  create_proofread_section(tabs['proofread'], 0, 0)
+  
+  root.mainloop()
 
 main()
-
-#get_synaptic_partners([720575941536100318,720575941338817903,720575941605725549])
