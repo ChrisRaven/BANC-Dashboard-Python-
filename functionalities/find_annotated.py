@@ -43,7 +43,6 @@ def make_request(table_name, callback):
     response = requests.post(url, params=params, headers=headers, json=data)
     arrow_data = pa.BufferReader(response.content)
     entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
-    print(entries_result)
   except Exception as e:
     print(f"Error: {e}")
   finally:
