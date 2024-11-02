@@ -70,7 +70,7 @@ def create_annotated_section(root, x, y):
 
   results = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  results.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  results.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_btn = ctk.CTkButton(frame, text="Copy",
                command=lambda: copy(results),
@@ -90,7 +90,7 @@ def create_synaptic_partners_section(root, x, y):
 
   source = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  source.pack(pady=0, padx=PADDING_X, fill='x')
 
   get_partners_btn = ctk.CTkButton(
     frame, text="Get Partners", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -103,7 +103,7 @@ def create_synaptic_partners_section(root, x, y):
 
   partners = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  partners.pack(pady=0, padx=PADDING_X, fill='x')
 
   def get_synaptic_partners_handler():
     show_loading_indicator(root)
@@ -153,11 +153,12 @@ def create_synaptic_partners_section(root, x, y):
 
   partners_of_partners = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  partners_of_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  partners_of_partners.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_partners_of_partners = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(partners_of_partners))
   copy_partners_of_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+
 
 def create_outdated_section(root, x, y):
   """Create the outdated section with modern styling"""
@@ -170,7 +171,7 @@ def create_outdated_section(root, x, y):
 
   source = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  source.pack(pady=0, padx=PADDING_X, fill='x')
 
   update_btn = ctk.CTkButton(
     frame, text="Update", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -182,7 +183,7 @@ def create_outdated_section(root, x, y):
 
   results = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  results.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  results.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -194,7 +195,7 @@ def create_outdated_section(root, x, y):
 
   updated = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  updated.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  updated.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_btn2 = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -212,7 +213,7 @@ def create_proofread_section(root, x, y):
 
   source = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  source.pack(pady=0, padx=PADDING_X, fill='x')
 
   get_btn = ctk.CTkButton(
     frame, text="Get", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -224,7 +225,7 @@ def create_proofread_section(root, x, y):
 
   proofread = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  proofread.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  proofread.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -236,7 +237,7 @@ def create_proofread_section(root, x, y):
 
   not_proofread = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  not_proofread.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  not_proofread.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_btn2 = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -249,7 +250,7 @@ def main():
   ctk.set_default_color_theme("green")
 
   root = ctk.CTk()
-  root.geometry('650x900')  # Wider window
+  root.geometry('650x800')
   root.title('BANC Dashboard')
   root.resizable(False, False)
 

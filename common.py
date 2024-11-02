@@ -13,7 +13,7 @@ def show_loading_indicator(root):
       mode='indeterminate',
       width=400,
     )
-    loading_indicator.place(relx=0.5, rely=0.97, anchor='center')
+    loading_indicator.place(relx=0.5, rely=0.98, anchor='center')
   loading_indicator.start()
 
 
