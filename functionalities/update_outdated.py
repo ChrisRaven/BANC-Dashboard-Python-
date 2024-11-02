@@ -1,32 +1,78 @@
-from caveclient import CAVEclient
-from datetime import datetime, timezone
+__all__ = ['update_outdated']
+from api_token import API_TOKEN
+import threading
 
-def update_outdated(ids):
-  client = CAVEclient(datastack_name = 'brain_and_nerve_cord')
+def update_outdated(ids, callback):
+  threading.Thread(target=lambda: update_outdated_request(ids, callback), daemon=True).start()
 
-  #ids = [720575941505773381, 720575941459216595, 720575941592289899]
+def update_outdated_request(ids, callback):
+  
+  import requests
+  from datetime import datetime, timezone
 
-  print('searching for outdated ids...')
-  checks = client.chunkedgraph.is_latest_roots(ids)
+  # Get current timestamp in seconds
+  current_timestamp = int(datetime.now(timezone.utc).timestamp())
 
+  headers = {
+    'Content-Type': 'application/json',
+    'Authorization': f'Bearer {API_TOKEN}',
+    'Cookie': f'middle_auth_token={API_TOKEN}'
+  }
+
+  # First request - check if roots are latest
+  response = requests.post(
+    "https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/is_latest_roots",
+    headers=headers,
+    json={"node_ids": ids}
+  )
+  is_latest = response.json()["is_latest"]
+
+  # Find outdated IDs
   outdated_ids = []
+  for i, is_current in enumerate(is_latest):
+    if not is_current:
+      outdated_ids.append(ids[i])
 
-  for i in range(len(ids)):
-      if not checks[i]:
-          outdated_ids.append(ids[i])
-          print(ids[i])
-
-  updated_ids = []
-
-  print('updating...')
+  # Process each outdated ID
+  all_latest_leaves = []
   for outdated_id in outdated_ids:
-      updated_id = client.chunkedgraph.get_latest_roots(outdated_id)
-      updated_ids.extend(updated_id)
-      print(updated_id)
+    # Get root timestamps
+    response = requests.post(
+      f"https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/root_timestamps",
+      headers=headers,
+      params={"latest": "False", "timestamp": current_timestamp},
+      json={"node_ids": [outdated_id]}
+    )
+    past_timestamp = response.json()["timestamp"][0]
 
-  print('old minus changed')
-  ids = list(set(ids) - set(outdated_ids))
-  print(ids)
+    # Get lineage graph
+    response = requests.post(
+      "https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/lineage_graph_multiple",
+      headers=headers,
+      json={
+        "root_ids": [outdated_id],
+        "timestamp_past": past_timestamp,
+        "timestamp_future": current_timestamp
+      }
+    )
+    graph_data = response.json()
 
-  print('changed')
-  print(updated_ids)
+    # Get latest leaves from graph
+    nodes = graph_data["nodes"]
+    links = graph_data["links"]
+    
+    # Find nodes without outgoing edges
+    outgoing_nodes = set(link["source"] for link in links)
+    leaves = [node for node in nodes if node["id"] not in outgoing_nodes]
+    
+    # Sort by timestamp descending and get IDs
+    leaves.sort(key=lambda x: x["timestamp"], reverse=True)
+    latest_leaves = [leaf["id"] for leaf in leaves]
+    
+    all_latest_leaves.extend(latest_leaves)
+
+  # Remove outdated IDs from original list
+  up_to_date_ids = list(set(ids) - set(outdated_ids))
+
+  # Call callback with results
+  callback(up_to_date_ids, all_latest_leaves)

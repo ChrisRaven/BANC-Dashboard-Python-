@@ -1,7 +1,6 @@
 from functionalities.find_annotated import *
 from functionalities.get_synaptic_partners import *
-from functionalities.update_outdated import update_outdated
-from functionalities.get_all_annotations import get_all_annotations
+from functionalities.update_outdated import *
 from common import *
 import customtkinter as ctk
 
@@ -160,7 +159,7 @@ def create_synaptic_partners_section(root, x, y):
   copy_partners_of_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
 
-def create_outdated_section(root, x, y):
+def create_update_outdated_section(root, x, y):
   """Create the outdated section with modern styling"""
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
   frame.place(x=x, y=y)
@@ -176,14 +175,27 @@ def create_outdated_section(root, x, y):
   update_btn = ctk.CTkButton(
     frame, text="Update", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
   update_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  update_btn.configure(command=lambda: update_handler())
 
-  results_label = ctk.CTkLabel(frame, text="Source Without Outdated", font=(
+  def update_handler():
+    show_loading_indicator(root)
+    source_data = clean_input(source.get('1.0', 'end'))
+    update_outdated(source_data, update_callback)
+    
+  def update_callback(result1, result2):
+    hide_loading_indicator()
+    source_without_outdated.delete('1.0', 'end')
+    source_without_outdated.insert('1.0', '\n'.join(map(str, result1)))
+    updated.delete('1.0', 'end')
+    updated.insert('1.0', '\n'.join(map(str, result2)))
+
+  source_without_outdated_label = ctk.CTkLabel(frame, text="Source Without Outdated", font=(
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  results_label.pack(anchor='w', padx=PADDING_X)
+  source_without_outdated_label.pack(anchor='w', padx=PADDING_X)
 
-  results = ctk.CTkTextbox(
+  source_without_outdated = ctk.CTkTextbox(
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  results.pack(pady=0, padx=PADDING_X, fill='x')
+  source_without_outdated.pack(pady=0, padx=PADDING_X, fill='x')
 
   copy_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -268,7 +280,7 @@ def main():
   # Create sections
   create_annotated_section(tabs['annotated'], 0, 0)
   create_synaptic_partners_section(tabs['synaptic'], 0, 0)
-  create_outdated_section(tabs['outdated'], 0, 0)
+  create_update_outdated_section(tabs['outdated'], 0, 0)
   create_proofread_section(tabs['proofread'], 0, 0)
 
   root.mainloop()
