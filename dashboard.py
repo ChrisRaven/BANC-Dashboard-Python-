@@ -1,6 +1,7 @@
 from functionalities.find_annotated import *
 from functionalities.get_synaptic_partners import *
 from functionalities.update_outdated import *
+from functionalities.get_proofread import *
 from common import *
 import customtkinter as ctk
 
@@ -227,9 +228,23 @@ def create_proofread_section(root, x, y):
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
   source.pack(pady=0, padx=PADDING_X, fill='x')
 
-  get_btn = ctk.CTkButton(
-    frame, text="Get", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  get_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  def get_proofread_handler():
+    show_loading_indicator(root)
+    source_data = clean_input(source.get('1.0', 'end'))
+    
+    def proofread_callback(proofread_ids, not_proofread_ids):
+      hide_loading_indicator()
+      proofread.delete('1.0', 'end')
+      proofread.insert('1.0', '\n'.join(map(str, proofread_ids)))
+      not_proofread.delete('1.0', 'end')
+      not_proofread.insert('1.0', '\n'.join(map(str, not_proofread_ids)))
+      
+    get_proofread(source_data, proofread_callback)
+
+  get_proofread_btn = ctk.CTkButton(
+    frame, text="Get", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT,
+    command=get_proofread_handler)
+  get_proofread_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
   proofread_label = ctk.CTkLabel(
     frame, text="Proofread", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
@@ -239,9 +254,9 @@ def create_proofread_section(root, x, y):
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
   proofread.pack(pady=0, padx=PADDING_X, fill='x')
 
-  copy_btn = ctk.CTkButton(
-    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  copy_proofread_btn = ctk.CTkButton(
+    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(proofread))
+  copy_proofread_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
   not_proofread_label = ctk.CTkLabel(
     frame, text="Not Proofread", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
@@ -251,9 +266,9 @@ def create_proofread_section(root, x, y):
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
   not_proofread.pack(pady=0, padx=PADDING_X, fill='x')
 
-  copy_btn2 = ctk.CTkButton(
-    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  copy_btn2.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  copy_not_proofread_btn = ctk.CTkButton(
+    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(not_proofread))
+  copy_not_proofread_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
 
 def main():
