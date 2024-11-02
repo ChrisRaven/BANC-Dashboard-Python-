@@ -120,7 +120,8 @@ def create_synaptic_partners_section(root, x, y):
   copy_partners = ctk.CTkButton(button_frame,
               text="Copy",
               width=SMALL_BUTTON_WIDTH,
-              height=BUTTON_HEIGHT)
+              height=BUTTON_HEIGHT,
+              command=lambda: copy(partners))
   copy_partners.pack(side='left', padx=(0, BUTTON_PADDING))
 
   number_of_partners = ctk.CTkEntry(button_frame,
@@ -155,9 +156,8 @@ def create_synaptic_partners_section(root, x, y):
   partners_of_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
   copy_partners_of_partners = ctk.CTkButton(
-    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(partners_of_partners))
   copy_partners_of_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
-
 
 def create_outdated_section(root, x, y):
   """Create the outdated section with modern styling"""
