@@ -1,4 +1,6 @@
 import customtkinter as ctk
+import re
+
 
 loading_indicator = None
 
@@ -11,7 +13,7 @@ def show_loading_indicator(root):
       mode='indeterminate',
       width=400,
     )
-    loading_indicator.place(relx=0.5, rely=0.95, anchor='center')
+    loading_indicator.place(relx=0.5, rely=0.97, anchor='center')
   loading_indicator.start()
 
 
@@ -32,3 +34,8 @@ def copy(source):
     source.clipboard_clear()
     source.clipboard_append(formatted_content)
     source.update()
+
+
+def clean_input(input_string, output_type=int):
+    parts = re.split(r'[ \t\r\n,;]+', input_string.strip())
+    return [output_type(part) for part in parts if part]

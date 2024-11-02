@@ -2,11 +2,15 @@ __all__ = ['get_entries', 'find_annotated']
 
 import pandas as pd
 import pyarrow as pa
+import numpy as np
 import threading
 import requests
+
 from api_token import API_TOKEN
 from datetime import datetime
-import numpy as np
+from common import *
+
+
 
 entries_result = None
 
@@ -58,9 +62,8 @@ def find_annotated_thread(search_text, callback):
   if not search_text:
     return
     
-  search_terms = [term.strip() for term in search_text.replace(';',',').split(',')]
-  search_terms = set(filter(None, search_terms))
-  
+  search_terms = set(clean_input(search_text, output_type=str))
+
   matching_rows = []
   # Convert to numpy arrays for faster operations
   tags = entries_result['tag'].values
