@@ -197,9 +197,9 @@ def create_update_outdated_section(root, x, y):
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
   source_without_outdated.pack(pady=0, padx=PADDING_X, fill='x')
 
-  copy_btn = ctk.CTkButton(
-    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  copy_source_without_outdated_btn = ctk.CTkButton(
+    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(source_without_outdated))
+  copy_source_without_outdated_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
   updated_label = ctk.CTkLabel(frame, text="Updated", font=(
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
@@ -209,9 +209,9 @@ def create_update_outdated_section(root, x, y):
     frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
   updated.pack(pady=0, padx=PADDING_X, fill='x')
 
-  copy_btn2 = ctk.CTkButton(
-    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  copy_btn2.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  copy_updated_btn = ctk.CTkButton(
+    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(updated))
+  copy_updated_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
 
 def create_proofread_section(root, x, y):
