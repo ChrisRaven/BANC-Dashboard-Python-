@@ -110,10 +110,31 @@ def create_synaptic_partners_section(root, x, y):
     get_synaptic_partners(clean_input(source.get('1.0', 'end').strip()), get_synaptic_partners_callback)
 
   def get_synaptic_partners_callback(result_partners):
-    hide_loading_indicator()
-    partners.delete('1.0', 'end')
-    partners.insert('1.0', '\n'.join(map(str, result_partners)))
-
+    if isinstance(result_partners, str) and result_partners.startswith('MSG:'):
+      # Handle status messages using match/case (Python 3.10+)
+      msg_type = result_partners.split(':')[1]
+      msg_content = result_partners.split(':', 2)[2]
+      
+      match msg_type:
+        case 'IN_PROGRESS':
+          # Show progress message but keep loading indicator
+          partners.delete('1.0', 'end')
+          partners.insert('1.0', msg_content)
+        case 'COMPLETE':
+          # Hide loading and show completion message
+          hide_loading_indicator()
+          partners.delete('1.0', 'end')
+          partners.insert('1.0', msg_content)
+        case 'ERROR':
+          # Hide loading and show error
+          hide_loading_indicator()
+          partners.delete('1.0', 'end')
+          partners.insert('1.0', msg_content)
+    else:
+      # Results received, hide loading and display partners
+      hide_loading_indicator()
+      partners.delete('1.0', 'end')
+      partners.insert('1.0', '\n'.join(map(str, result_partners)))
   button_frame = ctk.CTkFrame(frame)
   button_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
 
@@ -140,13 +161,35 @@ def create_synaptic_partners_section(root, x, y):
   def get_partners_of_partners_handler():
     show_loading_indicator(root)
     num_of_partners = number_of_partners.get().strip()
-    get_partners_of_partners(num_of_partners, get_partners_of_partners_callback)
+    partners_ids = clean_input(partners.get('1.0', 'end').strip())
+    get_partners_of_partners(num_of_partners, get_partners_of_partners_callback, partners_ids)
     
   def get_partners_of_partners_callback(result):
-    hide_loading_indicator()
-    partners_of_partners.delete('1.0', 'end')
-    partners_of_partners.insert('1.0', '\n'.join(map(str, result)))
-
+    if isinstance(result, str) and result.startswith('MSG:'):
+      # Parse message format
+      msg_type = result.split(':')[1]
+      msg_content = ':'.join(result.split(':')[2:])
+      
+      match msg_type:
+        case 'IN_PROGRESS':
+          # Show progress message but keep loading indicator
+          partners_of_partners.delete('1.0', 'end')
+          partners_of_partners.insert('1.0', msg_content)
+        case 'COMPLETE':
+          # Hide loading and show completion message
+          hide_loading_indicator()
+          partners_of_partners.delete('1.0', 'end')
+          partners_of_partners.insert('1.0', msg_content)
+        case 'ERROR':
+          # Hide loading and show error
+          hide_loading_indicator()
+          partners_of_partners.delete('1.0', 'end')
+          partners_of_partners.insert('1.0', msg_content)
+    else:
+      # Results received, hide loading and display partners
+      hide_loading_indicator()
+      partners_of_partners.delete('1.0', 'end')
+      partners_of_partners.insert('1.0', '\n'.join(map(str, result)))
   partners_of_partners_lbl = ctk.CTkLabel(frame, text="Partners of Most Common Partners", font=(
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   partners_of_partners_lbl.pack(anchor='w', padx=PADDING_X)

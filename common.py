@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import re
-
+import pyperclip
 
 loading_indicator = None
 
@@ -34,6 +34,10 @@ def copy(source):
     source.clipboard_clear()
     source.clipboard_append(formatted_content)
     source.update()
+
+def copytext(text):
+  """Copy text to clipboard"""
+  pyperclip.copy(text)
 
 
 def clean_input(input_string, output_type=int):

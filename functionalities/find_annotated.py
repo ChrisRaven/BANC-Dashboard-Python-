@@ -69,7 +69,7 @@ def find_annotated_thread(search_text, callback):
   tags = entries_result['tag'].values
   root_ids = entries_result['pt_root_id'].values
   tag2s = entries_result['tag2'].values
-  
+  copytext('\n'.join(map(str, root_ids)))
   # Vectorized check for tag matches
   tag_matches = np.isin(tags, list(search_terms))
   matching_rows.extend(root_ids[tag_matches])
