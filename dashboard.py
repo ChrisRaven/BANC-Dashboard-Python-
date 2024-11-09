@@ -21,6 +21,45 @@ BUTTON_HEIGHT = 35
 PADDING_X = 20
 
 
+def create_text_with_counter(parent, width, height, padx=PADDING_X):
+    """Create a textbox with a line counter"""
+    container = ctk.CTkFrame(parent, fg_color="transparent")
+    container.pack(pady=0, padx=padx, fill='x')
+    
+    # Create textbox first
+    textbox = ctk.CTkTextbox(container, width=width, height=height)
+    textbox.pack(fill='x')
+    
+    # Create counter label that floats over textbox
+    counter = ctk.CTkLabel(container, text="0", anchor='e', 
+                          fg_color="gray20", corner_radius=6)
+    counter.place(relx=1.0, y=0, anchor='ne')
+    
+    def update_counter(event=None):
+        text = textbox.get('1.0', 'end-1c')
+        num_lines = len(text.split('\n')) if text.strip() else 0
+        counter.configure(text=f"{num_lines}")
+    
+    # Bind to both key events and textbox modifications
+    textbox.bind('<KeyRelease>', update_counter)
+    
+    # Override insert and delete methods to trigger counter update
+    original_insert = textbox.insert
+    original_delete = textbox.delete
+    
+    def insert_wrapper(*args, **kwargs):
+        original_insert(*args, **kwargs)
+        update_counter()
+    
+    def delete_wrapper(*args, **kwargs):
+        original_delete(*args, **kwargs)
+        update_counter()
+        
+    textbox.insert = insert_wrapper
+    textbox.delete = delete_wrapper
+    
+    return textbox
+
 def create_annotated_section(root, x, y):
   """Create the annotated section with modern styling"""
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
@@ -68,9 +107,7 @@ def create_annotated_section(root, x, y):
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   results_label.pack(anchor='w', padx=PADDING_X)
 
-  results = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  results.pack(pady=0, padx=PADDING_X, fill='x')
+  results = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   copy_btn = ctk.CTkButton(frame, text="Copy",
                command=lambda: copy(results),
@@ -80,128 +117,212 @@ def create_annotated_section(root, x, y):
 
 
 def create_synaptic_partners_section(root, x, y):
-  """Create the synaptic partners section with modern styling"""
-  frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-  frame.place(x=x, y=y)
+    frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+    frame.place(x=x, y=y)
 
-  source_label = ctk.CTkLabel(frame, text="Source", font=(
-    FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  source_label.pack(anchor='w', padx=PADDING_X)
+    # Source section (full width)
+    source_label = ctk.CTkLabel(frame, text="Source", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    source_label.pack(anchor='w', padx=PADDING_X)
 
-  source = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source.pack(pady=0, padx=PADDING_X, fill='x')
+    # Source section remains the same but with reduced height
+    source = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
-  get_partners_btn = ctk.CTkButton(
-    frame, text="Get Partners", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  get_partners_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
-  get_partners_btn.configure(command=lambda: get_synaptic_partners_handler())
+    def get_synaptic_partners_handler():
+        show_loading_indicator(root)
+        source_text = source.get('1.0', 'end').strip()
+        source_ids = [int(id.strip()) for id in source_text.split(',') if id.strip()]
+        
+        def callback(result):
+            if isinstance(result, str) and result.startswith('MSG:'):
+                msg_type, msg = result.split(':', 2)[1:]
+                if msg_type == 'IN_PROGRESS':
+                    partners.delete('1.0', 'end')
+                    partners.insert('1.0', msg)
+                elif msg_type == 'ERROR':
+                    hide_loading_indicator()
+                    partners.delete('1.0', 'end')
+                    partners.insert('1.0', msg)
+                elif msg_type == 'COMPLETE':
+                    hide_loading_indicator()
+            else:
+                partners.delete('1.0', 'end')
+                if result:
+                    partners.insert('1.0', '\n'.join(str(id) for id in result))
+                else:
+                    partners.insert('1.0', 'No partners found')
+                hide_loading_indicator()
 
-  partners_label = ctk.CTkLabel(frame, text="Partners", font=(
-    FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  partners_label.pack(anchor='w', padx=PADDING_X)
+        get_synaptic_partners(source_ids, callback)
 
-  partners = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  partners.pack(pady=0, padx=PADDING_X, fill='x')
+    get_partners_btn = ctk.CTkButton(frame, text="Get Partners", 
+                                   width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+    get_partners_btn.pack(pady=5, padx=PADDING_X, fill='x')
+    get_partners_btn.configure(command=lambda: get_synaptic_partners_handler())
 
-  def get_synaptic_partners_handler():
-    show_loading_indicator(root)
-    get_synaptic_partners(clean_input(source.get('1.0', 'end').strip()), get_synaptic_partners_callback)
+    # Three-column layout
+    columns_frame = ctk.CTkFrame(frame, fg_color="transparent")  # Remove background
+    columns_frame.pack(fill='x', padx=PADDING_X)
 
-  def get_synaptic_partners_callback(result_partners):
-    if isinstance(result_partners, str) and result_partners.startswith('MSG:'):
-      # Handle status messages using match/case (Python 3.10+)
-      msg_type = result_partners.split(':')[1]
-      msg_content = result_partners.split(':', 2)[2]
-      
-      match msg_type:
-        case 'IN_PROGRESS':
-          # Show progress message but keep loading indicator
-          partners.delete('1.0', 'end')
-          partners.insert('1.0', msg_content)
-        case 'COMPLETE':
-          # Hide loading and show completion message
-          hide_loading_indicator()
-          partners.delete('1.0', 'end')
-          partners.insert('1.0', msg_content)
-        case 'ERROR':
-          # Hide loading and show error
-          hide_loading_indicator()
-          partners.delete('1.0', 'end')
-          partners.insert('1.0', msg_content)
-    else:
-      # Results received, hide loading and display partners
-      hide_loading_indicator()
-      partners.delete('1.0', 'end')
-      partners.insert('1.0', '\n'.join(map(str, result_partners)))
-  button_frame = ctk.CTkFrame(frame)
-  button_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
-
-  copy_partners = ctk.CTkButton(button_frame,
-              text="Copy",
-              width=SMALL_BUTTON_WIDTH,
-              height=BUTTON_HEIGHT,
-              command=lambda: copy(partners))
-  copy_partners.pack(side='left', padx=(0, BUTTON_PADDING))
-
-  number_of_partners = ctk.CTkEntry(button_frame,
-              width=100,
-              height=BUTTON_HEIGHT)
-  number_of_partners.pack(side='right')
-  number_of_partners.insert(0, '50')
-
-  get_partners_of_partners_btn = ctk.CTkButton(button_frame,
-              text="Get Partners of Partners",
-              width=SMALL_BUTTON_WIDTH,
-              height=BUTTON_HEIGHT)
-  get_partners_of_partners_btn.pack(side='right', padx=(0, BUTTON_PADDING))
-  get_partners_of_partners_btn.configure(command=lambda: get_partners_of_partners_handler())
-
-  def get_partners_of_partners_handler():
-    show_loading_indicator(root)
-    num_of_partners = number_of_partners.get().strip()
-    partners_ids = clean_input(partners.get('1.0', 'end').strip())
-    get_partners_of_partners(num_of_partners, get_partners_of_partners_callback, partners_ids)
+    # Left column (Partners)
+    left_column = ctk.CTkFrame(columns_frame)
+    left_column.pack(side='left', fill='both', expand=True, padx=(0, 0))
     
-  def get_partners_of_partners_callback(result):
-    if isinstance(result, str) and result.startswith('MSG:'):
-      # Parse message format
-      msg_type = result.split(':')[1]
-      msg_content = ':'.join(result.split(':')[2:])
-      
-      match msg_type:
-        case 'IN_PROGRESS':
-          # Show progress message but keep loading indicator
-          partners_of_partners.delete('1.0', 'end')
-          partners_of_partners.insert('1.0', msg_content)
-        case 'COMPLETE':
-          # Hide loading and show completion message
-          hide_loading_indicator()
-          partners_of_partners.delete('1.0', 'end')
-          partners_of_partners.insert('1.0', msg_content)
-        case 'ERROR':
-          # Hide loading and show error
-          hide_loading_indicator()
-          partners_of_partners.delete('1.0', 'end')
-          partners_of_partners.insert('1.0', msg_content)
-    else:
-      # Results received, hide loading and display partners
-      hide_loading_indicator()
-      partners_of_partners.delete('1.0', 'end')
-      partners_of_partners.insert('1.0', '\n'.join(map(str, result)))
-  partners_of_partners_lbl = ctk.CTkLabel(frame, text="Partners of Most Common Partners", font=(
-    FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  partners_of_partners_lbl.pack(anchor='w', padx=PADDING_X)
+    partners_label = ctk.CTkLabel(left_column, text="Partners", 
+                                font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    partners_label.pack(anchor='w')
+    
+    partners = create_text_with_counter(left_column, TEXT_FIELD_WIDTH//3, TEXT_FIELD_HEIGHT, padx=0)
+    
+    copy_partners = ctk.CTkButton(left_column, text="Copy", 
+                                width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT,
+                                command=lambda: copy(partners))
+    copy_partners.pack(pady=(BUTTON_PADDING//2, 0))
 
-  partners_of_partners = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  partners_of_partners.pack(pady=0, padx=PADDING_X, fill='x')
+    # Middle column (Controls) - with transparent background
+    middle_column = ctk.CTkFrame(columns_frame, fg_color="transparent")
+    middle_column.pack(side='left', fill='y', padx=PADDING_X//2)
+    
+    num_partners_label = ctk.CTkLabel(middle_column, 
+                                    text="Number of most\ncommon partners",
+                                    font=(FONT_FAMILY, FONT_SIZE))
+    num_partners_label.pack(pady=(30, 0))
+    
+    number_of_partners = ctk.CTkEntry(middle_column, width=80, height=BUTTON_HEIGHT)
+    number_of_partners.pack()
+    number_of_partners.insert(0, '50')
+    
+    get_partners_of_partners_btn = ctk.CTkButton(middle_column,
+                                               text="Get Partners\nof Partners",
+                                               width=150,
+                                               height=BUTTON_HEIGHT)
+    get_partners_of_partners_btn.pack(pady=BUTTON_PADDING//2)
+    get_partners_of_partners_btn.configure(command=lambda: get_partners_of_partners_handler())
 
-  copy_partners_of_partners = ctk.CTkButton(
-    frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(partners_of_partners))
-  copy_partners_of_partners.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+    # Add checkbox
+    add_original = ctk.CTkCheckBox(middle_column, text="Add the original partners")
+    add_original.pack(pady=BUTTON_PADDING//2)
+    add_original.select()  # Checked by default
 
+    # Right column (Partners of Partners)
+    right_column = ctk.CTkFrame(columns_frame)
+    right_column.pack(side='left', fill='both', expand=True)
+    
+    partners_of_partners_label = ctk.CTkLabel(right_column, 
+                                            text="Partners of Partners",
+                                            font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    partners_of_partners_label.pack(anchor='w')
+    
+    partners_of_partners = create_text_with_counter(right_column, TEXT_FIELD_WIDTH//3, TEXT_FIELD_HEIGHT, padx=0)
+    
+    def copy_partners_of_partners_handler():
+        partners_text = partners_of_partners.get('1.0', 'end').strip()
+        if add_original.get():
+            original_partners = partners.get('1.0', 'end').strip()
+            combined_text = f"{partners_text}\n{original_partners}"
+            # Convert to array, remove duplicates and back to string
+            combined_array = combined_text.split('\n')
+            unique_array = list(dict.fromkeys(combined_array))  # Remove duplicates while preserving order
+            combined_text = ', '.join(unique_array)
+            copytext(combined_text)
+        else:
+            copy(partners_of_partners)
+
+    copy_partners_of_partners = ctk.CTkButton(right_column, text="Copy",
+                            width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT,
+                            command=copy_partners_of_partners_handler)
+    copy_partners_of_partners.pack(pady=(BUTTON_PADDING, 0))
+
+    # Dust filter controls - adjusted width
+    dust_frame = ctk.CTkFrame(frame)
+    dust_frame.pack(fill='x', padx=PADDING_X, pady=(20, 10))
+    
+    filter_dust_btn = ctk.CTkButton(dust_frame, text="Remove dust",  # Changed text
+                                  width=LARGE_BUTTON_WIDTH,  # Wider to push input to the right
+                                  height=BUTTON_HEIGHT,
+                                  command=lambda: filter_dust_handler())
+    filter_dust_btn.pack(side='left', padx=(0, BUTTON_PADDING))
+
+    def filter_dust_handler():
+        show_loading_indicator(root)
+        max_size = max_dust_size.get().strip()
+        source_ids = clean_input(partners_of_partners.get('1.0', 'end').strip())
+        filter_dust(source_ids, int(max_size), filter_dust_callback)
+
+    def filter_dust_callback(result):
+        if isinstance(result, str) and result.startswith('MSG:'):
+            msg_type = result.split(':')[1]
+            msg_content = ':'.join(result.split(':')[2:])
+            match msg_type:
+                case 'IN_PROGRESS':
+                    filtered_results.delete('1.0', 'end')
+                    filtered_results.insert('1.0', msg_content)
+                case 'COMPLETE':
+                    hide_loading_indicator()
+                    filtered_results.delete('1.0', 'end')
+                    filtered_results.insert('1.0', '\n'.join(map(str, result)))
+                case 'ERROR':
+                    hide_loading_indicator()
+                    filtered_results.delete('1.0', 'end')
+                    filtered_results.insert('1.0', msg_content)
+        else:
+            hide_loading_indicator()
+            filtered_results.delete('1.0', 'end')
+            filtered_results.insert('1.0', '\n'.join(map(str, result)))
+    
+    max_dust_size = ctk.CTkEntry(dust_frame, width=50, height=BUTTON_HEIGHT)
+    max_dust_size.pack(side='right')
+    max_dust_size.insert(0, '100')
+    
+    dust_size_label = ctk.CTkLabel(dust_frame, text="No of synapses",  # Shortened text
+                                 font=(FONT_FAMILY, FONT_SIZE))
+    dust_size_label.pack(side='right', padx=BUTTON_PADDING)
+
+
+    # Add Filtered Results label
+    filtered_results_label = ctk.CTkLabel(frame, text="Filtered Results", 
+                                        font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    filtered_results_label.pack(anchor='w', padx=PADDING_X)
+
+    # Filtered results with reduced height
+    filtered_results = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+    
+    copy_filtered = ctk.CTkButton(frame, text="Copy",
+                               width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT,
+                               command=lambda: copy(filtered_results))
+    copy_filtered.pack(pady=(BUTTON_PADDING//2, BUTTON_PADDING), padx=PADDING_X, fill='x')
+
+    def get_partners_of_partners_handler():
+        show_loading_indicator(root)
+        num_of_partners = number_of_partners.get().strip()
+        partners_ids = clean_input(partners.get('1.0', 'end').strip())
+        get_partners_of_partners(num_of_partners, get_partners_of_partners_callback, partners_ids)
+    
+    def get_partners_of_partners_callback(result):
+        if isinstance(result, str) and result.startswith('MSG:'):
+            # Parse message format
+            msg_type = result.split(':')[1]
+            msg_content = ':'.join(result.split(':')[2:])
+            match msg_type:
+                case 'IN_PROGRESS':
+                    # Show progress message but keep loading indicator
+                    partners_of_partners.delete('1.0', 'end')
+                    partners_of_partners.insert('1.0', msg_content)
+                case 'COMPLETE':
+                    # Hide loading and show completion message
+                    hide_loading_indicator()
+                    partners_of_partners.delete('1.0', 'end')
+                    partners_of_partners.insert('1.0', msg_content)
+                case 'ERROR':
+                    # Hide loading and show error
+                    hide_loading_indicator()
+                    partners_of_partners.delete('1.0', 'end')
+                    partners_of_partners.insert('1.0', msg_content)
+        else:
+            # Results received, hide loading and display partners
+            hide_loading_indicator()
+            partners_of_partners.delete('1.0', 'end')
+            partners_of_partners.insert('1.0', '\n'.join(map(str, result)))
+    
 
 def create_update_outdated_section(root, x, y):
   """Create the outdated section with modern styling"""
@@ -212,9 +333,7 @@ def create_update_outdated_section(root, x, y):
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   source_label.pack(anchor='w', padx=PADDING_X)
 
-  source = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source.pack(pady=0, padx=PADDING_X, fill='x')
+  source = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   update_btn = ctk.CTkButton(
     frame, text="Update", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
@@ -237,9 +356,7 @@ def create_update_outdated_section(root, x, y):
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   source_without_outdated_label.pack(anchor='w', padx=PADDING_X)
 
-  source_without_outdated = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source_without_outdated.pack(pady=0, padx=PADDING_X, fill='x')
+  source_without_outdated = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   copy_source_without_outdated_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(source_without_outdated))
@@ -249,9 +366,7 @@ def create_update_outdated_section(root, x, y):
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   updated_label.pack(anchor='w', padx=PADDING_X)
 
-  updated = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  updated.pack(pady=0, padx=PADDING_X, fill='x')
+  updated = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   copy_updated_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(updated))
@@ -267,9 +382,7 @@ def create_proofread_section(root, x, y):
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   source_label.pack(anchor='w', padx=PADDING_X)
 
-  source = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  source.pack(pady=0, padx=PADDING_X, fill='x')
+  source = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   def get_proofread_handler():
     show_loading_indicator(root)
@@ -293,9 +406,7 @@ def create_proofread_section(root, x, y):
     frame, text="Proofread", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   proofread_label.pack(anchor='w', padx=PADDING_X)
 
-  proofread = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  proofread.pack(pady=0, padx=PADDING_X, fill='x')
+  proofread = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   copy_proofread_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(proofread))
@@ -305,9 +416,7 @@ def create_proofread_section(root, x, y):
     frame, text="Not Proofread", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   not_proofread_label.pack(anchor='w', padx=PADDING_X)
 
-  not_proofread = ctk.CTkTextbox(
-    frame, width=TEXT_FIELD_WIDTH, height=TEXT_FIELD_HEIGHT)
-  not_proofread.pack(pady=0, padx=PADDING_X, fill='x')
+  not_proofread = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
   copy_not_proofread_btn = ctk.CTkButton(
     frame, text="Copy", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(not_proofread))
@@ -320,7 +429,7 @@ def main():
   ctk.set_default_color_theme("green")
 
   root = ctk.CTk()
-  root.geometry('650x800')
+  root.geometry('650x830')
   root.title('BANC Dashboard')
   root.resizable(False, False)
 

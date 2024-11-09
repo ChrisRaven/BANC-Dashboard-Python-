@@ -1,4 +1,7 @@
 __pycache__/
 dist/
+build/
 api_token.py
 .vscode/settings.json
+dashboard.spec
+

@@ -1,9 +1,10 @@
-__all__ = ['get_synaptic_partners', 'get_partners_of_partners']
+__all__ = ['get_synaptic_partners', 'get_partners_of_partners', 'filter_dust']
 
 import threading
 from api_token import API_TOKEN
 from caveclient import CAVEclient
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 
@@ -86,3 +87,60 @@ def get_partners_of_partners_request(num_of_partners, callback, partners_ids):
   except Exception as e:
     print(e.with_traceback())
     callback(f'Error: {str(e)}')
+
+def filter_dust(source_ids, max_size, callback):
+  """
+  Filter out 'dust' segments by checking fragment counts.
+  
+  Args:
+      source_ids: List of segment IDs to check
+      max_size: Maximum number of fragments to consider as dust
+      callback: Callback function to report progress and results
+  """
+  threading.Thread(target=lambda: filter_dust_request(source_ids, max_size, callback), daemon=True).start()
+
+def filter_dust_request(source_ids, max_size, callback):
+    try:
+        client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
+        
+        # Process in batches
+        BATCH_SIZE = 500
+        results = []
+        total = len(source_ids)
+        processed = 0
+
+        def process_batch(batch):
+            # Query both pre and post synapses for this batch
+            pre_synapses = client.materialize.synapse_query(pre_ids=batch)
+            post_synapses = client.materialize.synapse_query(post_ids=batch)
+            
+            # Convert to dictionaries for faster lookup
+            pre_counts = pre_synapses['pre_pt_root_id'].value_counts().to_dict()
+            post_counts = post_synapses['post_pt_root_id'].value_counts().to_dict()
+            
+            batch_results = []
+            for seg_id in batch:
+                total_synapses = pre_counts.get(seg_id, 0) + post_counts.get(seg_id, 0)
+                if total_synapses > max_size:
+                    batch_results.append(seg_id)
+                    
+            return batch_results
+
+        # Create batches
+        batches = [source_ids[i:i + BATCH_SIZE] for i in range(0, len(source_ids), BATCH_SIZE)]
+        
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_batch = {executor.submit(process_batch, batch): batch for batch in batches}
+            
+            for future in as_completed(future_to_batch):
+                batch_results = future.result()
+                results.extend(batch_results)
+                processed += len(future_to_batch[future])
+                callback(f"MSG:IN_PROGRESS:Processed {processed}/{total} IDs. Kept {len(results)} IDs so far.")
+
+        callback(f"MSG:COMPLETE:Completed processing {total} segments")
+        callback(sorted(results))
+        
+    except Exception as e:
+        print(f"Full error: {str(e)}")
+        callback(f"MSG:ERROR:Error: {str(e)}")
