@@ -130,7 +130,7 @@ def create_synaptic_partners_section(root, x, y):
     def get_synaptic_partners_handler():
         show_loading_indicator(root)
         source_text = source.get('1.0', 'end').strip()
-        source_ids = [int(id.strip()) for id in source_text.split(',') if id.strip()]
+        source_ids = clean_input(source_text)
         
         def callback(result):
             if isinstance(result, str) and result.startswith('MSG:'):
@@ -151,7 +151,7 @@ def create_synaptic_partners_section(root, x, y):
                 else:
                     partners.insert('1.0', 'No partners found')
                 hide_loading_indicator()
-
+        print(source_ids)
         get_synaptic_partners(source_ids, callback)
 
     get_partners_btn = ctk.CTkButton(frame, text="Get Partners", 
