@@ -2,6 +2,7 @@ from functionalities.find_annotated import *
 from functionalities.get_synaptic_partners import *
 from functionalities.update_outdated import *
 from functionalities.get_proofread import *
+from functionalities.find_differences import *
 from common import *
 import customtkinter as ctk
 
@@ -423,6 +424,80 @@ def create_proofread_section(root, x, y):
   copy_not_proofread_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
 
+def create_differences_section(root, x, y):
+    """Create the differences section with modern styling"""
+    diff_frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+    diff_frame.place(x=x, y=y)
+
+    # Textfield A with label and counter
+    textfield_a_label = ctk.CTkLabel(diff_frame, text="A", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    textfield_a_label.pack(anchor='w', padx=PADDING_X)
+    textfield_a = create_text_with_counter(diff_frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+    textfield_a.pack()
+
+    # Textfield B with label and counter
+    textfield_b_label = ctk.CTkLabel(diff_frame, text="B", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    textfield_b_label.pack(anchor='w', padx=PADDING_X)
+    textfield_b = create_text_with_counter(diff_frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+    textfield_b.pack()
+
+    def find_differences_callback(results):
+       a_only_textfield.delete('1.0', 'end')
+       a_only_textfield.insert('1.0', "\n".join(map(str, results['a_only'])) if results['a_only'] else "None")
+       
+       a_plus_b_textfield.delete('1.0', 'end')
+       a_plus_b_textfield.insert('1.0', "\n".join(map(str, results['a_plus_b'])) if results['a_plus_b'] else "None")
+       
+       b_only_textfield.delete('1.0', 'end')
+       b_only_textfield.insert('1.0', "\n".join(map(str, results['b_only'])) if results['b_only'] else "None")
+       
+    def find_differences_handler():
+       A = clean_input(textfield_a.get('1.0', 'end'))
+       B = clean_input(textfield_b.get('1.0', 'end'))
+       find_differences(A, B, find_differences_callback)
+
+    # Button to Find Differences
+    find_diff_button = ctk.CTkButton(diff_frame, text="Find Differences", width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=find_differences_handler)
+    find_diff_button.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+
+    # Textfields for differences with counters and copy buttons
+    differences_frame = ctk.CTkFrame(diff_frame, fg_color="transparent")  # Remove background
+    differences_frame.pack(fill='x', padx=PADDING_X)
+
+    # Column 1: A only
+    a_only_column = ctk.CTkFrame(differences_frame)
+    a_only_column.pack(side='left', fill='both', expand=True, padx=(5, 5))
+    
+    a_only_label = ctk.CTkLabel(a_only_column, text="A only", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    a_only_label.pack(anchor='w')
+    a_only_textfield = create_text_with_counter(a_only_column, TEXT_FIELD_WIDTH // 3.5, TEXT_FIELD_HEIGHT, padx=0)
+    a_only_textfield.pack(fill='both', expand=True)
+    a_only_copy_button = ctk.CTkButton(a_only_column, text="Copy", width=TEXT_FIELD_WIDTH // 3.5, height=BUTTON_HEIGHT, command=lambda: copy(a_only_textfield))
+    a_only_copy_button.pack(fill='x')
+
+    # Column 2: A + B
+    a_plus_b_column = ctk.CTkFrame(differences_frame)
+    a_plus_b_column.pack(side='left', fill='both', expand=True, padx=(5, 5))
+    
+    a_plus_b_label = ctk.CTkLabel(a_plus_b_column, text="A + B", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    a_plus_b_label.pack(anchor='w')
+    a_plus_b_textfield = create_text_with_counter(a_plus_b_column, TEXT_FIELD_WIDTH // 3.5, TEXT_FIELD_HEIGHT, padx=0)
+    a_plus_b_textfield.pack(fill='both', expand=True)
+    a_plus_b_copy_button = ctk.CTkButton(a_plus_b_column, text="Copy", width=TEXT_FIELD_WIDTH // 3.5, height=BUTTON_HEIGHT, command=lambda: copy(a_plus_b_textfield))
+    a_plus_b_copy_button.pack(fill='x')
+
+    # Column 3: B only
+    b_only_column = ctk.CTkFrame(differences_frame)
+    b_only_column.pack(side='left', fill='both', expand=True, padx=(5, 5))
+    
+    b_only_label = ctk.CTkLabel(b_only_column, text="B only", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    b_only_label.pack(anchor='w')
+    b_only_textfield = create_text_with_counter(b_only_column, TEXT_FIELD_WIDTH // 3.5, TEXT_FIELD_HEIGHT, padx=0)
+    b_only_textfield.pack(fill='both', expand=True)
+    b_only_copy_button = ctk.CTkButton(b_only_column, text="Copy", width=TEXT_FIELD_WIDTH // 3.5, height=BUTTON_HEIGHT, command=lambda: copy(b_only_textfield))
+    b_only_copy_button.pack(fill='x')
+
+
 def main():
   """Initialize and run the main application"""
   ctk.set_appearance_mode("dark")
@@ -441,7 +516,8 @@ def main():
     'annotated': tabview.add('Find Annotated'),
     'synaptic': tabview.add('Synaptic Partners'),
     'outdated': tabview.add('Update Outdated'),
-    'proofread': tabview.add('Find Proofread')
+    'proofread': tabview.add('Find Proofread'),
+    'differences': tabview.add('Differences')
   }
 
   # Create sections
@@ -449,6 +525,7 @@ def main():
   create_synaptic_partners_section(tabs['synaptic'], 0, 0)
   create_update_outdated_section(tabs['outdated'], 0, 0)
   create_proofread_section(tabs['proofread'], 0, 0)
+  create_differences_section(tabs['differences'], 0, 0)
 
   root.mainloop()
 
