@@ -152,7 +152,7 @@ def create_synaptic_partners_section(root, x, y):
                 else:
                     partners.insert('1.0', 'No partners found')
                 hide_loading_indicator()
-        print(source_ids)
+
         get_synaptic_partners(source_ids, callback)
 
     get_partners_btn = ctk.CTkButton(frame, text="Get Partners", 
@@ -247,6 +247,9 @@ def create_synaptic_partners_section(root, x, y):
         show_loading_indicator(root)
         max_size = max_dust_size.get().strip()
         source_ids = clean_input(partners_of_partners.get('1.0', 'end').strip())
+        if add_original.get():
+            original_ids = clean_input(partners.get('1.0', 'end').strip())
+            source_ids += original_ids
         filter_dust(source_ids, int(max_size), filter_dust_callback)
 
     def filter_dust_callback(result):
