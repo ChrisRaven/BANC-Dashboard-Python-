@@ -5,6 +5,7 @@ from functionalities.get_proofread import *
 from functionalities.find_differences import *
 from common import *
 import customtkinter as ctk
+import platform
 
 
 # Style constants
@@ -223,11 +224,12 @@ def create_synaptic_partners_section(root, x, y):
             # Convert to array, remove duplicates and back to string
             combined_array = combined_text.split('\n')
             unique_array = list(dict.fromkeys(combined_array))  # Remove duplicates while preserving order
-            combined_text = ', '.join(unique_array)
+            # Use OS-dependent newline character for separators
+            newline = '\r\n' if platform.system() == 'Windows' else '\n'
+            combined_text = newline.join(unique_array)
             copytext(combined_text)
         else:
             copy(partners_of_partners)
-
     copy_partners_of_partners = ctk.CTkButton(right_column, text="Copy",
                             width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT,
                             command=copy_partners_of_partners_handler)
