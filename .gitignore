@@ -4,4 +4,4 @@ build/
 api_token.py
 .vscode/settings.json
 dashboard.spec
-
+last_search_entry.json

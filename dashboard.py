@@ -6,6 +6,8 @@ from functionalities.find_differences import *
 from common import *
 import customtkinter as ctk
 import platform
+import os
+import json
 
 
 # Style constants
@@ -80,7 +82,26 @@ def create_annotated_section(root, x, y):
   search_frame = ctk.CTkFrame(frame)
   search_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
 
+  # Load last entered value from file
+  last_entered_value = None
+  if os.path.exists('last_search_entry.json'):
+    with open('last_search_entry.json', 'r') as file:
+      last_entered_value = json.load(file)
+
+  def save_search_entry():
+    value = search_entry.get()
+    with open('last_search_entry.json', 'w') as file:
+      json.dump(value, file)
+
   search_entry = ctk.CTkEntry(search_frame, width=200, height=BUTTON_HEIGHT)
+  if last_entered_value:
+    search_entry.insert(0, last_entered_value)
+
+  # Save the search entry value whenever it changes
+  def on_search_entry_change(event=None):
+    save_search_entry()
+
+  search_entry.bind('<KeyRelease>', on_search_entry_change)
   search_entry.pack(side='left', expand=True,
           fill='x', padx=(0, BUTTON_PADDING))
 
