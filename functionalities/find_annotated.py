@@ -5,6 +5,7 @@ import pyarrow as pa
 import numpy as np
 import threading
 import requests
+import json
 
 from api_token import API_TOKEN
 from datetime import datetime
@@ -45,12 +46,29 @@ def make_request(table_name, callback):
     }
     
     response = requests.post(url, params=params, headers=headers, json=data)
-    arrow_data = pa.BufferReader(response.content)
-    entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
+    content_type = response.headers.get("Content-Type", "")
+
+    if "application/json" in content_type:
+      # Response is JSON
+      try:
+        json_data = response.json()  # Parse JSON
+        callback(json_data['message'])
+      except json.JSONDecodeError:
+        callback("Error decoding JSON")
+    elif "application/vnd.apache.arrow" in content_type:
+      # Response is Arrow
+      try:
+        arrow_data = pa.BufferReader(response.content)
+        entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
+        print("Arrow Data:", entries_result)
+      except Exception as e:
+        callback("Error decoding Arrow data")
+
+    
   except Exception as e:
     print(f"Error: {e}")
   finally:
-    callback()
+    callback('')
 
 
 def find_annotated(search_text, callback):

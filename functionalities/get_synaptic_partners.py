@@ -1,11 +1,11 @@
-__all__ = ['get_synaptic_partners', 'get_partners_of_partners', 'filter_dust']
+__all__ = ['get_synaptic_partners', 'get_partners_of_partners', 'get_common_of_common', 'filter_dust']
 
 import threading
 from api_token import API_TOKEN
 from caveclient import CAVEclient
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from collections import Counter
 
 
 
@@ -88,6 +88,13 @@ def get_partners_of_partners_request(num_of_partners, callback, partners_ids):
   except Exception as e:
     print(e.with_traceback())
     callback(f'Error: {str(e)}')
+
+def get_common_of_common(source_ids, x=20):
+    # Count occurrences of each id in all_partners_ids
+    id_counts = Counter(all_partners_ids)
+    # Filter out IDs that appear more than x times and are not in source_ids
+    repeated_partners = [id for id, count in id_counts.items() if count > x and id not in source_ids]
+    return repeated_partners
 
 def filter_dust(source_ids, max_size, callback):
   """

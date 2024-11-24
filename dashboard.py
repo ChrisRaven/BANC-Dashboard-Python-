@@ -69,12 +69,17 @@ def create_annotated_section(root, x, y):
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
   frame.place(x=x, y=y)
 
-  def get_all_annotations_calllback():
+  def get_all_annotations_callback(msg):
+     hide_loading_indicator()
+     if (msg):
+       results.insert('1.0', msg)
+
+  def get_all_annotations_handler():
     show_loading_indicator(root)
-    get_entries("cell_info", hide_loading_indicator)
+    get_entries("cell_info", get_all_annotations_callback)
 
   get_ann_btn = ctk.CTkButton(frame, text="Get All Annotations",
-                command=get_all_annotations_calllback,
+                command=get_all_annotations_handler,
                 width=LARGE_BUTTON_WIDTH,
                 height=BUTTON_HEIGHT)
   get_ann_btn.pack(pady=(BUTTON_PADDING, 20), padx=PADDING_X, fill='x')
@@ -226,6 +231,16 @@ def create_synaptic_partners_section(root, x, y):
     add_original.pack(pady=BUTTON_PADDING//2)
     add_original.select()  # Checked by default
 
+    find_common_of_common = ctk.CTkCheckBox(middle_column, text="Find common of common", 
+                                          command=lambda: update_filter_dust_label(find_common_of_common))
+    find_common_of_common.pack(pady=BUTTON_PADDING//2)
+
+    def update_filter_dust_label(checkbox):
+        if checkbox.get():
+            filter_dust_btn.configure(text="Get common of common")
+        else:
+            filter_dust_btn.configure(text="Filter dust")
+
     # Right column (Partners of Partners)
     right_column = ctk.CTkFrame(columns_frame)
     right_column.pack(side='left', fill='both', expand=True)
@@ -260,11 +275,21 @@ def create_synaptic_partners_section(root, x, y):
     dust_frame = ctk.CTkFrame(frame)
     dust_frame.pack(fill='x', padx=PADDING_X, pady=(20, 10))
     
-    filter_dust_btn = ctk.CTkButton(dust_frame, text="Remove dust",  # Changed text
-                                  width=LARGE_BUTTON_WIDTH,  # Wider to push input to the right
-                                  height=BUTTON_HEIGHT,
-                                  command=lambda: filter_dust_handler())
+    filter_dust_btn = ctk.CTkButton(
+      dust_frame,
+      text="Remove dust",
+      width=LARGE_BUTTON_WIDTH,
+      height=BUTTON_HEIGHT,
+      command=lambda: get_common_of_common_handler() if find_common_of_common.get() else filter_dust_handler()
+    )
     filter_dust_btn.pack(side='left', padx=(0, BUTTON_PADDING))
+
+    def get_common_of_common_handler():
+        source_ids = clean_input(source.get('1.0', 'end').strip())
+        num_of_common_partners = int(number_of_partners.get())
+        results = get_common_of_common(source_ids, num_of_common_partners)
+        filtered_results.delete('1.0', 'end')
+        filtered_results.insert('1.0', '\n'.join(map(str, results)))
 
     def filter_dust_handler():
         show_loading_indicator(root)
