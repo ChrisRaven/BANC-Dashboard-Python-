@@ -55,18 +55,14 @@ def make_request(table_name, callback):
         callback(json_data['message'])
       except json.JSONDecodeError:
         callback("Error decoding JSON")
-    elif "application/vnd.apache.arrow" in content_type:
-      # Response is Arrow
+    else:
       try:
         arrow_data = pa.BufferReader(response.content)
         entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
-        print("Arrow Data:", entries_result)
       except Exception as e:
         callback("Error decoding Arrow data")
-
-    
   except Exception as e:
-    print(f"Error: {e}")
+    callback(e)
   finally:
     callback('')
 

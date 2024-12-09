@@ -12,17 +12,18 @@ import json
 
 # Style constants
 BUTTON_PADDING = 12
-FRAME_WIDTH = 600       # Wider frames for better spacing
+FRAME_WIDTH = 700       # Wider frames for better spacing
 FRAME_HEIGHT = 850      # Taller frames
 FONT_FAMILY = "Roboto"  # Modern Google font
 FONT_SIZE = 12
 FONT_WEIGHT = 'bold'
-TEXT_FIELD_WIDTH = 580
+TEXT_FIELD_WIDTH = 680
 TEXT_FIELD_HEIGHT = 150
 LARGE_BUTTON_WIDTH = 380
 SMALL_BUTTON_WIDTH = 200
 BUTTON_HEIGHT = 35
 PADDING_X = 20
+
 
 
 def create_text_with_counter(parent, width, height, padx=PADDING_X):
@@ -488,7 +489,7 @@ def create_differences_section(root, x, y):
 
     # Textfield B with label and counter
     textfield_b_label = ctk.CTkLabel(diff_frame, text="B", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-    textfield_b_label.pack(anchor='w', padx=PADDING_X)
+    textfield_b_label.pack(anchor='w', padx=PADDING_X, pady=(10, 0))
     textfield_b = create_text_with_counter(diff_frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
     textfield_b.pack()
 
@@ -549,13 +550,53 @@ def create_differences_section(root, x, y):
     b_only_copy_button.pack(fill='x')
 
 
+def create_coords_section(root, x, y):
+    """Create the coords section with modern styling"""
+    frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT, fg_color="transparent")
+    frame.place(x=x, y=y)
+
+    coords_label = ctk.CTkLabel(frame, text="Coords", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    coords_label.pack(anchor='w', padx=PADDING_X)
+    coords_textfield = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+    coords_textfield.pack()
+
+    segment_ids_label = ctk.CTkLabel(frame, text="Segment IDs", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    segment_ids_label.pack(anchor='w', padx=PADDING_X, pady=(10, 0))
+    segment_ids_textfield = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+    segment_ids_textfield.pack()
+
+    check_button = ctk.CTkButton(frame, text="Check", width=TEXT_FIELD_WIDTH, height=BUTTON_HEIGHT)
+    check_button.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
+   
+
+    correct_coords_column = ctk.CTkFrame(frame)
+    correct_coords_column.pack(side='left', fill='both', expand=True, padx=(5, 5))
+    correct_coords_label = ctk.CTkLabel(correct_coords_column, text="Correct Coords", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    correct_coords_label.pack(anchor='w', padx=PADDING_X)
+    correct_coords_textfield = create_text_with_counter(correct_coords_column, TEXT_FIELD_WIDTH // 2.5, TEXT_FIELD_HEIGHT, padx=(PADDING_X, 0))
+    correct_coords_textfield.pack()
+    correct_coords_copy_button = ctk.CTkButton(correct_coords_column, text="Copy", width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(correct_coords_textfield))
+    correct_coords_copy_button.pack(fill='x', padx=(PADDING_X, 0), pady=BUTTON_PADDING)
+
+#    copy_partners.pack(pady=(BUTTON_PADDING//2, 0))
+
+    incorrect_ids_column = ctk.CTkFrame(frame)
+    incorrect_ids_column.pack(side='left', fill='both', expand=True, padx=(5, 5))
+    incorrect_ids_label = ctk.CTkLabel(incorrect_ids_column, text="Incorrect IDs", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    incorrect_ids_label.pack(anchor='w', padx=PADDING_X)
+    incorrect_ids_textfield = create_text_with_counter(incorrect_ids_column, TEXT_FIELD_WIDTH // 2.5, TEXT_FIELD_HEIGHT, padx=(0, PADDING_X))
+    incorrect_ids_textfield.pack()
+    incorrect_ids_copy_button = ctk.CTkButton(incorrect_ids_column, text="Copy", width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT, command=lambda: copy(incorrect_ids_textfield))
+    incorrect_ids_copy_button.pack(fill='x', padx=(0, PADDING_X), pady=BUTTON_PADDING)
+
+
 def main():
   """Initialize and run the main application"""
   ctk.set_appearance_mode("dark")
   ctk.set_default_color_theme("green")
 
   root = ctk.CTk()
-  root.geometry('650x830')
+  root.geometry('750x830')
   root.title('BANC Dashboard')
   root.resizable(False, False)
 
@@ -568,7 +609,8 @@ def main():
     'synaptic': tabview.add('Synaptic Partners'),
     'outdated': tabview.add('Update Outdated'),
     'proofread': tabview.add('Find Proofread'),
-    'differences': tabview.add('Differences')
+    'differences': tabview.add('Differences'),
+    'coords': tabview.add('Check coords')
   }
 
   # Create sections
@@ -577,6 +619,7 @@ def main():
   create_update_outdated_section(tabs['outdated'], 0, 0)
   create_proofread_section(tabs['proofread'], 0, 0)
   create_differences_section(tabs['differences'], 0, 0)
+  create_coords_section(tabs['coords'], 0, 0)
 
   root.mainloop()
 
