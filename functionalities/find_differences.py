@@ -14,7 +14,7 @@ def find_differences_request(A, B, callback):
     b_only = list(b_set - a_set)
 
     callback({
-        'a_only': a_only,
-        'a_plus_b': a_plus_b,
-        'b_only': b_only
+      'a_only': a_only,
+      'a_plus_b': a_plus_b,
+      'b_only': b_only
     })
