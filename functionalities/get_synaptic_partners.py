@@ -11,10 +11,10 @@ from collections import Counter
 
 all_partners_ids = []
 
-def get_synaptic_partners(source_ids, callback):
-  threading.Thread(target=lambda: get_synaptic_partners_request(source_ids, callback), daemon=True).start()
+def get_synaptic_partners(source_ids, callback, return_complete_data=False):
+  threading.Thread(target=lambda: get_synaptic_partners_request(source_ids, callback, return_complete_data), daemon=True).start()
 
-def get_synaptic_partners_request(source_ids, callback):
+def get_synaptic_partners_request(source_ids, callback, return_complete_data=False):
   try:
     # Initialize the CAVE client with your token
     client = CAVEclient(
@@ -35,13 +35,16 @@ def get_synaptic_partners_request(source_ids, callback):
       callback(f"MSG:IN_PROGRESS:Processing batch {current_batch} of {total_batches}...")
       
       # Query this batch
-      batch_ids = client.materialize.synapse_query(pre_ids=batch)
+      batch_ids = client.materialize.synapse_query(pre_ids=batch, post_ids=batch)
       all_ids.append(batch_ids)
-    
+
     # Combine all results
     if len(all_ids) > 0:
       ids = pd.concat(all_ids, ignore_index=True)
-      
+      if (return_complete_data):
+         return callback(ids)
+      pd.set_option("display.max_columns", None) #temp
+      #print(ids.head()) #temp
       # Extract post_pt_root_ids
       post_ids = set(ids['post_pt_root_id'].unique())
       

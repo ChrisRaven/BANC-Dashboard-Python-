@@ -16,11 +16,11 @@ from common import *
 entries_result = None
 
 
-def get_entries(table_name, callback):
+def get_entries(table_name, callback, return_result=False):
   """Start request in separate thread"""
-  threading.Thread(target=lambda: make_request(table_name, callback), daemon=True).start()
+  threading.Thread(target=lambda: make_request(table_name, callback, return_result), daemon=True).start()
 
-def make_request(table_name, callback):
+def make_request(table_name, callback, return_result=False):
   """Make API request with error handling"""
   global entries_result
   try:
@@ -54,15 +54,17 @@ def make_request(table_name, callback):
         json_data = response.json()  # Parse JSON
         callback(json_data['message'])
       except json.JSONDecodeError:
-        callback("Error decoding JSON")
+        callback("MSG:Error decoding JSON")
     else:
       try:
         arrow_data = pa.BufferReader(response.content)
         entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
+        if return_result:
+          callback(entries_result)
       except Exception as e:
-        callback("Error decoding Arrow data")
+        callback("MSG:Error decoding Arrow data")
   except Exception as e:
-    callback(e)
+    callback('MSG:' + e)
   finally:
     callback('')
 
@@ -81,8 +83,8 @@ def find_annotated_thread(search_text, callback):
   matching_rows = []
   # Convert to numpy arrays for faster operations
   tags = entries_result['tag'].values
-  root_ids = entries_result['pt_root_id'].values
   tag2s = entries_result['tag2'].values
+  root_ids = entries_result['pt_root_id'].values
   copytext('\n'.join(map(str, root_ids)))
   # Vectorized check for tag matches
   tag_matches = np.isin(tags, list(search_terms))

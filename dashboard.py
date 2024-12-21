@@ -4,11 +4,16 @@ from functionalities.update_outdated import *
 from functionalities.get_proofread import *
 from functionalities.find_differences import *
 from functionalities.check_coords import *
+from functionalities.connectivity import *
 from common import *
 import customtkinter as ctk
 import platform
 import os
 import json
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
 
 
 # Style constants
@@ -118,9 +123,10 @@ def create_annotated_section(root, x, y):
 
     def callback(found):
       results.delete('1.0', 'end')
-      if found:
-        results.insert('1.0', '\n'.join(str(row_id)
-                for row_id in found))
+      if isinstance(found, str) and found.startswith('MSG:'):
+        results.insert('1.0', found[4:])  # Skip the "MSG:" prefix
+      elif found:
+        results.insert('1.0', '\n'.join(str(row_id) for row_id in found))
       else:
         results.insert('1.0', 'No matches found')
       hide_loading_indicator()
@@ -566,8 +572,7 @@ def create_coords_section(root, x, y):
       """Handler function for checking coordinates"""
       show_loading_indicator(root)
       data_text = data_textfield.get('1.0', 'end').strip()
-#39976,46041,2637;53726,40883,1741;55333,24777,2427
-#720575941605809023 720575941515598739 720575941160721276
+
       def callback(valid_coords, invalid_segment_ids):
         hide_loading_indicator()
         if len(valid_coords) or len(invalid_segment_ids):
@@ -603,6 +608,58 @@ def create_coords_section(root, x, y):
     incorrect_ids_copy_button.pack(fill='x', padx=(0, PADDING_X), pady=BUTTON_PADDING)
 
 
+def create_connectivity_section(root, x, y):
+    frame = ctk.CTkFrame(root)
+    frame.place(x=x, y=y)
+
+    input_label = ctk.CTkLabel(frame, text="Input IDs", font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+    input_label.pack(anchor='w', padx=PADDING_X)
+    input_textfield = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+    input_textfield.pack()
+
+    def get_clusters_handler():
+        """Handler function for getting clusters"""
+        show_loading_indicator(root)
+        input_text = input_textfield.get('1.0', 'end').strip()
+
+        def callback(figure):
+            # Handle messages vs results
+            if isinstance(figure, str) and figure.startswith("MSG:"):
+                # Remove any existing message labels
+                for widget in frame.winfo_children():
+                    if isinstance(widget, ctk.CTkLabel) and hasattr(widget, 'is_message'):
+                        widget.destroy()
+                
+                # Display new message
+                message = figure.replace("MSG:", "")
+                message_label = ctk.CTkLabel(frame, text=message, 
+                                           font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+                message_label.is_message = True  # Add attribute to identify message labels
+                message_label.pack(pady=(10, 0), padx=PADDING_X)
+                return
+            
+            # Clear any existing message labels and canvas
+            for widget in frame.winfo_children():
+                if isinstance(widget, ctk.CTkLabel) and hasattr(widget, 'is_message'):
+                    widget.destroy()
+                elif isinstance(widget, FigureCanvasTkAgg().get_tk_widget().__class__):
+                    widget.destroy()
+            hide_loading_indicator()
+            if figure:
+                canvas = FigureCanvasTkAgg(figure, master=frame)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill='both', expand=True, padx=PADDING_X)
+            else:
+                error_message = "Error generating clusters. Please check input and try again."
+                ctk.CTkLabel(frame, text=error_message, font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT)).pack(pady=(10, 0), padx=PADDING_X)
+
+        get_clusters(input_text, callback)
+
+    get_clusters_button = ctk.CTkButton(frame, text="Get clusters", width=TEXT_FIELD_WIDTH, height=BUTTON_HEIGHT, command=get_clusters_handler)
+    get_clusters_button.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
+    
+
+
 def main():
   """Initialize and run the main application"""
   ctk.set_appearance_mode("dark")
@@ -623,7 +680,8 @@ def main():
     'outdated': tabview.add('Update Outdated'),
     'proofread': tabview.add('Find Proofread'),
     'differences': tabview.add('Differences'),
-    'coords': tabview.add('Check coords')
+    'coords': tabview.add('Check coords'),
+    'connectivity': tabview.add('Connectivity'),
   }
 
   # Create sections
@@ -633,6 +691,8 @@ def main():
   create_proofread_section(tabs['proofread'], 0, 0)
   create_differences_section(tabs['differences'], 0, 0)
   create_coords_section(tabs['coords'], 0, 0)
+  create_connectivity_section(tabs['connectivity'], 0, 0)
+
 
   root.mainloop()
 
