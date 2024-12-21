@@ -1,11 +1,8 @@
 __all__ = ['check_coords']
 
 import threading
-from api_token import API_TOKEN
-from caveclient import CAVEclient
 import banc
-from datetime import datetime
-from common import *
+from utils.backend import *
 
 
 def check_coords(data, callback):

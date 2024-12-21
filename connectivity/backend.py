@@ -5,9 +5,9 @@ from api_token import API_TOKEN
 from caveclient import CAVEclient
 import banc
 from datetime import datetime
-from common import *
-from functionalities.find_annotated import get_entries
-from functionalities.get_synaptic_partners import get_synaptic_partners
+from utils.backend import *
+from find_annotated.backend import get_entries
+from get_synaptic_partners.backend import get_synaptic_partners
 import pandas as pd
 import pyarrow as pa
 import numpy as np
