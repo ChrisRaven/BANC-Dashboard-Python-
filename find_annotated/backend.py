@@ -12,7 +12,6 @@ from datetime import datetime
 from utils.backend import *
 
 
-
 entries_result = None
 
 
@@ -54,7 +53,7 @@ def make_request(table_name, callback, return_result=False):
         json_data = response.json()  # Parse JSON
         callback(json_data['message'])
       except json.JSONDecodeError:
-        callback("MSG:Error decoding JSON")
+        callback("ERR:Error decoding JSON")
     else:
       try:
         arrow_data = pa.BufferReader(response.content)
@@ -62,11 +61,11 @@ def make_request(table_name, callback, return_result=False):
         if return_result:
           callback(entries_result)
       except Exception as e:
-        callback("MSG:Error decoding Arrow data")
+        callback("ERR:Error decoding Arrow data")
   except Exception as e:
-    callback('MSG:' + e)
+    callback('ERR:' + e)
   finally:
-    callback('')
+    callback(len(entries_result) if isinstance(entries_result, pd.DataFrame) else '')
 
 
 def find_annotated(search_text, callback):

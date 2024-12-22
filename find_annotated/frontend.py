@@ -6,29 +6,41 @@ import json
 import os
 
 def create_annotated_section(root, x, y):
-  """Create the annotated section with modern styling"""
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
   frame.place(x=x, y=y)
 
   def get_all_annotations_callback(msg):
-     hide_loading_indicator()
-     if (msg):
-       results.insert('1.0', msg)
+    hide_loading_indicator()
+    if not msg:
+      status_label.configure(text='')
+      return
+
+    if isinstance(msg, str) and msg.startswith('ERR:'):
+      results.insert('1.0', msg.replace('ERR:', ''))
+      results.insert('1.0', '')
+      status_label.configure(text='')
+    else:
+      status_label.configure(text=f'Found {msg} annotations')
 
   def get_all_annotations_handler():
     show_loading_indicator(root)
-    get_entries("cell_info", get_all_annotations_callback)
+    status_label.configure(text=f'Fetching annotations...')
+    get_entries('cell_info', get_all_annotations_callback)
 
-  get_ann_btn = ctk.CTkButton(frame, text="Get All Annotations",
-                command=get_all_annotations_handler,
-                width=LARGE_BUTTON_WIDTH,
-                height=BUTTON_HEIGHT)
+  get_ann_btn = ctk.CTkButton(
+    frame,
+    text='Get all annotations',
+    command=get_all_annotations_handler,
+    width=LARGE_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT)
   get_ann_btn.pack(pady=(BUTTON_PADDING, 20), padx=PADDING_X, fill='x')
+
+  status_label = ctk.CTkLabel(frame, text='Click "Get all annotations" to start', text_color='Yellow')
+  status_label.pack(anchor='w', padx=(PADDING_X + 20, 0))
 
   search_frame = ctk.CTkFrame(frame)
   search_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
 
-  # Load last entered value from file
   last_entered_value = None
   if os.path.exists('last_search_entry.json'):
     with open('last_search_entry.json', 'r') as file:
@@ -43,7 +55,6 @@ def create_annotated_section(root, x, y):
   if last_entered_value:
     search_entry.insert(0, last_entered_value)
 
-  # Save the search entry value whenever it changes
   def on_search_entry_change(event=None):
     save_search_entry()
 
