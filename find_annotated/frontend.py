@@ -5,6 +5,7 @@ from .backend import *
 import json
 import os
 
+
 def create_annotated_section(root, x, y):
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
   frame.place(x=x, y=y)
@@ -32,7 +33,8 @@ def create_annotated_section(root, x, y):
     text='Get all annotations',
     command=get_all_annotations_handler,
     width=LARGE_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT)
+    height=BUTTON_HEIGHT
+  )
   get_ann_btn.pack(pady=(BUTTON_PADDING, 20), padx=PADDING_X, fill='x')
 
   status_label = ctk.CTkLabel(frame, text='Click "Get all annotations" to start', text_color='Yellow')
@@ -59,8 +61,7 @@ def create_annotated_section(root, x, y):
     save_search_entry()
 
   search_entry.bind('<KeyRelease>', on_search_entry_change)
-  search_entry.pack(side='left', expand=True,
-          fill='x', padx=(0, BUTTON_PADDING))
+  search_entry.pack(side='left', expand=True, fill='x', padx=(0, BUTTON_PADDING))
 
   def find_button_callback():
     show_loading_indicator(root)
@@ -69,7 +70,7 @@ def create_annotated_section(root, x, y):
     def callback(found):
       results.delete('1.0', 'end')
       if isinstance(found, str) and found.startswith('MSG:'):
-        results.insert('1.0', found[4:])  # Skip the "MSG:" prefix
+        results.insert('1.0', found[4:])
       elif found:
         results.insert('1.0', '\n'.join(str(row_id) for row_id in found))
       else:
@@ -78,20 +79,26 @@ def create_annotated_section(root, x, y):
 
     find_annotated(search_text, callback)
 
-  find_button = ctk.CTkButton(search_frame, text="Find",
-                command=find_button_callback,
-                width=SMALL_BUTTON_WIDTH,
-                height=BUTTON_HEIGHT)
+  find_button = ctk.CTkButton(
+    search_frame,
+    text='Find',
+    command=find_button_callback,
+    width=SMALL_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT
+  )
   find_button.pack(side='right')
 
-  results_label = ctk.CTkLabel(frame, text="Results", font=(
+  results_label = ctk.CTkLabel(frame, text='Results', font=(
     FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   results_label.pack(anchor='w', padx=PADDING_X)
 
   results = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
-  copy_btn = ctk.CTkButton(frame, text="Copy",
-               command=lambda: copy(results),
-               width=LARGE_BUTTON_WIDTH,
-               height=BUTTON_HEIGHT)
+  copy_btn = ctk.CTkButton(
+    frame,
+    text='Copy',
+    command=lambda: copy(results),
+    width=LARGE_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT
+  )
   copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')

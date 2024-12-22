@@ -9,8 +9,8 @@ from check_coords.frontend import *
 from connectivity.frontend import *
 
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("green")
+ctk.set_appearance_mode('dark')
+ctk.set_default_color_theme('green')
 
 root = ctk.CTk()
 root.geometry('750x830')
@@ -20,7 +20,6 @@ root.resizable(False, False)
 tabview = ctk.CTkTabview(root)
 tabview.pack(expand=True, fill='both', padx=10, pady=10)
 
-# Create tabs
 tabs = {
   'annotated': tabview.add('Find Annotated'),
   'synaptic': tabview.add('Synaptic Partners'),
@@ -31,7 +30,6 @@ tabs = {
   'connectivity': tabview.add('Connectivity'),
 }
 
-# Create sections
 create_annotated_section(tabs['annotated'], 0, 0)
 create_synaptic_partners_section(tabs['synaptic'], 0, 0)
 create_update_outdated_section(tabs['outdated'], 0, 0)

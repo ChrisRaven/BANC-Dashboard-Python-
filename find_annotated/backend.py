@@ -14,22 +14,19 @@ from utils.backend import *
 
 entries_result = None
 
-
 def get_entries(table_name, callback, return_result=False):
-  """Start request in separate thread"""
   threading.Thread(target=lambda: make_request(table_name, callback, return_result), daemon=True).start()
 
 def make_request(table_name, callback, return_result=False):
-  """Make API request with error handling"""
   global entries_result
   try:
-    url = "https://cave.fanc-fly.com/materialize/api/v3/datastack/brain_and_nerve_cord/query"
+    url = 'https://cave.fanc-fly.com/materialize/api/v3/datastack/brain_and_nerve_cord/query'
     params = {
-      "return_pyarrow": "True",
-      "arrow_format": "True", 
-      "merge_reference": "False",
-      "allow_missing_lookups": "False",
-      "allow_invalid_root_ids": "False"
+      'return_pyarrow': 'True',
+      'arrow_format': 'True', 
+      'merge_reference': 'False',
+      'allow_missing_lookups': 'False',
+      'allow_invalid_root_ids': 'False'
     }
     
     headers = {
@@ -40,20 +37,19 @@ def make_request(table_name, callback, return_result=False):
     }
     
     data = {
-      "table": table_name,
-      "timestamp": datetime.now().isoformat()
+      'table': table_name,
+      'timestamp': datetime.now().isoformat()
     }
     
     response = requests.post(url, params=params, headers=headers, json=data)
-    content_type = response.headers.get("Content-Type", "")
+    content_type = response.headers.get('Content-Type', '')
 
-    if "application/json" in content_type:
-      # Response is JSON
+    if 'application/json' in content_type:
       try:
-        json_data = response.json()  # Parse JSON
+        json_data = response.json()
         callback(json_data['message'])
       except json.JSONDecodeError:
-        callback("ERR:Error decoding JSON")
+        callback('ERR:Error decoding JSON')
     else:
       try:
         arrow_data = pa.BufferReader(response.content)
@@ -61,7 +57,7 @@ def make_request(table_name, callback, return_result=False):
         if return_result:
           callback(entries_result)
       except Exception as e:
-        callback("ERR:Error decoding Arrow data")
+        callback('ERR:Error decoding Arrow data')
   except Exception as e:
     callback('ERR:' + e)
   finally:
@@ -72,7 +68,7 @@ def find_annotated(search_text, callback):
   threading.Thread(target=lambda: find_annotated_thread(search_text, callback), daemon=True).start()
 
 def find_annotated_thread(search_text, callback):
-  """Search functionality with improved matching"""
+  '''Search functionality with improved matching'''
   
   if not search_text:
     return

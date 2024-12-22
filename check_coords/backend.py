@@ -6,7 +6,6 @@ from utils.backend import *
 
 
 def check_coords(data, callback):
-  """Start request in separate thread"""
   threading.Thread(target=lambda: check_coords_request(data, callback), daemon=True).start()
 
 def check_coords_request(data, callback):
@@ -30,5 +29,5 @@ def check_coords_request(data, callback):
     else:
       invalid_segment_ids.append(segment_id)
 
-  valid_coords = ";".join([",".join(map(str, coord)) for coord in valid_coords])
+  valid_coords = ';'.join([','.join(map(str, coord)) for coord in valid_coords])
   callback(valid_coords, invalid_segment_ids)
