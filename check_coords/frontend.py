@@ -13,7 +13,6 @@ def create_coords_section(root, x, y):
   data_textfield = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
   data_textfield.pack()
 
-  
   def check_coords_handler():
     show_loading_indicator(root)
     data_text = data_textfield.get('1.0', 'end').strip()

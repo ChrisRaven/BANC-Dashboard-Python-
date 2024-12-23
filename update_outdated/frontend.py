@@ -13,8 +13,7 @@ def create_update_outdated_section(root, x, y):
 
   source = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
 
-  update_btn = ctk.CTkButton(
-    frame, text='Update', width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
+  update_btn = ctk.CTkButton(frame, text='Update', width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
   update_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
   update_btn.configure(command=lambda: update_handler())
 

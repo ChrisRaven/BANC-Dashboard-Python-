@@ -44,11 +44,9 @@ def create_synaptic_partners_section(root, x, y):
   get_partners_btn.pack(pady=5, padx=PADDING_X, fill='x')
   get_partners_btn.configure(command=lambda: get_synaptic_partners_handler())
 
-  # Three-column layout
-  columns_frame = ctk.CTkFrame(frame, fg_color='transparent')  # Remove background
+  columns_frame = ctk.CTkFrame(frame, fg_color='transparent')
   columns_frame.pack(fill='x', padx=PADDING_X)
 
-  # Left column (Partners)
   left_column = ctk.CTkFrame(columns_frame)
   left_column.pack(side='left', fill='both', expand=True, padx=(0, 0))
   
@@ -66,7 +64,6 @@ def create_synaptic_partners_section(root, x, y):
   )
   copy_partners.pack(pady=(BUTTON_PADDING // 2, 0))
 
-  # Middle column (Controls) - with transparent background
   middle_column = ctk.CTkFrame(columns_frame, fg_color='transparent')
   middle_column.pack(side='left', fill='y', padx=PADDING_X // 2)
   
@@ -107,7 +104,6 @@ def create_synaptic_partners_section(root, x, y):
     else:
       filter_dust_btn.configure(text='Filter dust')
 
-  # Right column (Partners of Partners)
   right_column = ctk.CTkFrame(columns_frame)
   right_column.pack(side='left', fill='both', expand=True)
   
@@ -133,9 +129,13 @@ def create_synaptic_partners_section(root, x, y):
       copytext(combined_text)
     else:
       copy(partners_of_partners)
-  copy_partners_of_partners = ctk.CTkButton(right_column, text='Copy',
-                          width=SMALL_BUTTON_WIDTH, height=BUTTON_HEIGHT,
-                          command=copy_partners_of_partners_handler)
+  copy_partners_of_partners = ctk.CTkButton(
+    right_column,
+    text='Copy',
+    width=SMALL_BUTTON_WIDTH,
+    height=BUTTON_HEIGHT,
+    command=copy_partners_of_partners_handler
+  )
   copy_partners_of_partners.pack(pady=(BUTTON_PADDING, 0))
 
   dust_frame = ctk.CTkFrame(frame)

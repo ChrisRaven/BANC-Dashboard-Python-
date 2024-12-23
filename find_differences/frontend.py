@@ -42,7 +42,7 @@ def create_differences_section(root, x, y):
   )
   find_diff_button.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
 
-  differences_frame = ctk.CTkFrame(diff_frame, fg_color='transparent')  # Remove background
+  differences_frame = ctk.CTkFrame(diff_frame, fg_color='transparent')
   differences_frame.pack(fill='x', padx=PADDING_X)
 
   a_only_column = ctk.CTkFrame(differences_frame)

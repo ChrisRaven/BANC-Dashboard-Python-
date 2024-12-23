@@ -26,7 +26,6 @@ def hide_loading_indicator():
     loading_indicator = None
 
 def create_text_with_counter(parent, width, height, padx=PADDING_X):
-  '''Create a textbox with a line counter'''
   container = ctk.CTkFrame(parent, fg_color='transparent')
   container.pack(pady=0, padx=padx, fill='x')
 
@@ -37,7 +36,6 @@ def create_text_with_counter(parent, width, height, padx=PADDING_X):
                         fg_color='gray20', corner_radius=6)
   counter.place(relx=1.0, y=0, anchor='ne')
 
-  # Create copy button but don't place it yet
   copy_button = ctk.CTkButton(
     container,
     text='Copy',

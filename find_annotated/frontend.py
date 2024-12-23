@@ -88,8 +88,7 @@ def create_annotated_section(root, x, y):
   )
   find_button.pack(side='right')
 
-  results_label = ctk.CTkLabel(frame, text='Results', font=(
-    FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+  results_label = ctk.CTkLabel(frame, text='Results', font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
   results_label.pack(anchor='w', padx=PADDING_X)
 
   results = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)

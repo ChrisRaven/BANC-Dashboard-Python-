@@ -68,8 +68,6 @@ def find_annotated(search_text, callback):
   threading.Thread(target=lambda: find_annotated_thread(search_text, callback), daemon=True).start()
 
 def find_annotated_thread(search_text, callback):
-  '''Search functionality with improved matching'''
-  
   if not search_text:
     return
     

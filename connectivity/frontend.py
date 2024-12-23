@@ -28,9 +28,8 @@ def create_connectivity_section(root, x, y):
             widget.destroy()
 
         message = figure.replace('MSG:', '')
-        message_label = ctk.CTkLabel(frame, text=message, 
-                                   font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-        message_label.is_message = True  # Add attribute to identify message labels
+        message_label = ctk.CTkLabel(frame, text=message, font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
+        message_label.is_message = True
         message_label.pack(pady=(10, 0), padx=PADDING_X)
         return
       

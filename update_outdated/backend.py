@@ -27,13 +27,11 @@ def update_outdated_request(ids, callback):
   )
   is_latest = response.json()['is_latest']
 
-  # Find outdated IDs
   outdated_ids = []
   for i, is_current in enumerate(is_latest):
     if not is_current:
       outdated_ids.append(ids[i])
 
-  # Process each outdated ID
   all_latest_leaves = []
   for outdated_id in outdated_ids:
     # Get root timestamps

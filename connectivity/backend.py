@@ -32,8 +32,7 @@ def get_clusters_thread(input_ids, callback):
         return tags[idx[0]]  # Replace with corresponding tag
     except:
         pass
-    return 'Other'  # Keep original if not found
-
+    return 'Other'  # If tag not found, add to "Other" category
 
   def group(synapses):
     if not (isinstance(synapses, str) and synapses.startswith('MSG:')) and not synapses.empty:
