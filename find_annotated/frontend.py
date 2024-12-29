@@ -6,9 +6,9 @@ import json
 import os
 
 
-def create_annotated_section(root, x, y):
+def create_annotated_section(root):
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-  frame.place(x=x, y=y)
+  frame.pack(fill='x')
 
   def get_all_annotations_callback(msg):
     hide_loading_indicator()
@@ -28,20 +28,20 @@ def create_annotated_section(root, x, y):
     status_label.configure(text=f'Fetching annotations...')
     get_entries('cell_info', get_all_annotations_callback)
 
-  get_ann_btn = ctk.CTkButton(
-    frame,
-    text='Get all annotations',
-    command=get_all_annotations_handler,
-    width=LARGE_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT
+  widgets.spacer(parent=frame, height=20)
+
+  widgets.button(
+    parent=frame,
+    label='Get all annotations',
+    action=get_all_annotations_handler
   )
-  get_ann_btn.pack(pady=(BUTTON_PADDING, 20), padx=PADDING_X, fill='x')
 
-  status_label = ctk.CTkLabel(frame, text='Click "Get all annotations" to start', text_color='Yellow')
+  status_label = ctk.CTkLabel(
+    frame,
+    text='Click "Get all annotations" to start',
+    text_color='Yellow'
+  )
   status_label.pack(anchor='w', padx=(PADDING_X + 20, 0))
-
-  search_frame = ctk.CTkFrame(frame)
-  search_frame.pack(fill='x', pady=BUTTON_PADDING, padx=PADDING_X)
 
   last_entered_value = None
   if os.path.exists('last_search_entry.json'):
@@ -49,23 +49,28 @@ def create_annotated_section(root, x, y):
       last_entered_value = json.load(file)
 
   def save_search_entry():
-    value = search_entry.get()
+    value = find_entry.get()
     with open('last_search_entry.json', 'w') as file:
       json.dump(value, file)
 
-  search_entry = ctk.CTkEntry(search_frame, width=200, height=BUTTON_HEIGHT)
+  widgets.spacer(parent=frame, height=20)
+
+  find_wrapper = widgets.column_wrapper(parent=frame)
+  find_entry_column = widgets.column(parent=find_wrapper)
+  find_entry = widgets.labeledEntry(parent=find_entry_column, label='Annotations to search for')
+
   if last_entered_value:
-    search_entry.insert(0, last_entered_value)
+    find_entry.insert(0, last_entered_value)
 
   def on_search_entry_change(event=None):
     save_search_entry()
 
-  search_entry.bind('<KeyRelease>', on_search_entry_change)
-  search_entry.pack(side='left', expand=True, fill='x', padx=(0, BUTTON_PADDING))
+  find_entry.bind('<KeyRelease>', on_search_entry_change)
+  
 
   def find_button_callback():
     show_loading_indicator(root)
-    search_text = search_entry.get().strip()
+    find_text = find_entry.get().strip()
 
     def callback(found):
       results.delete('1.0', 'end')
@@ -77,27 +82,15 @@ def create_annotated_section(root, x, y):
         results.insert('1.0', 'No matches found')
       hide_loading_indicator()
 
-    find_annotated(search_text, callback)
+    find_annotated(find_text, callback)
 
-  find_button = ctk.CTkButton(
-    search_frame,
-    text='Find',
-    command=find_button_callback,
-    width=SMALL_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT
+  find_button_column = widgets.column(parent=find_wrapper, anchor='sw')
+  widgets.button(
+    parent=find_button_column,
+    label='Find',
+    action=find_button_callback
   )
-  find_button.pack(side='right')
 
-  results_label = ctk.CTkLabel(frame, text='Results', font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  results_label.pack(anchor='w', padx=PADDING_X)
+  widgets.spacer(parent=frame, height=20)
 
-  results = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
-
-  copy_btn = ctk.CTkButton(
-    frame,
-    text='Copy',
-    command=lambda: copy(results),
-    width=LARGE_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT
-  )
-  copy_btn.pack(pady=BUTTON_PADDING, padx=PADDING_X, fill='x')
+  results = widgets.countTextbox(parent=frame, label='Results')

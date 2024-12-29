@@ -4,19 +4,19 @@ from utils.backend import *
 from .backend import *
 
 
-def create_synaptic_partners_section(root, x, y):
+def create_synaptic_partners_section(root):
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
-  frame.place(x=x, y=y)
+  frame.pack(fill='x')
 
-  source_label = ctk.CTkLabel(frame, text='Source', font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  source_label.pack(anchor='w', padx=PADDING_X)
-
-  source = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
+  left_column = widgets.column(parent=frame, border=True)
+  
+  input_ids = widgets.countTextbox(parent=left_column, label='Input IDs')
 
   def get_synaptic_partners_handler():
     show_loading_indicator(root)
-    source_text = source.get('1.0', 'end').strip()
+    source_text = input_ids.get('1.0', 'end').strip()
     source_ids = clean_input(source_text)
+    direction = target_selection.get_selected()
     
     def callback(result):
       if isinstance(result, str) and result.startswith('MSG:'):
@@ -38,186 +38,27 @@ def create_synaptic_partners_section(root, x, y):
           partners.insert('1.0', 'No partners found')
         hide_loading_indicator()
 
-    get_synaptic_partners(source_ids, callback)
+    get_synaptic_partners(source_ids, callback, direction)
 
-  get_partners_btn = ctk.CTkButton(frame, text='Get Partners', width=LARGE_BUTTON_WIDTH, height=BUTTON_HEIGHT)
-  get_partners_btn.pack(pady=5, padx=PADDING_X, fill='x')
-  get_partners_btn.configure(command=lambda: get_synaptic_partners_handler())
+  get_partners_group_wrapper = widgets.column_wrapper(parent=left_column)
+  target_selection_wrapper = widgets.column(parent=get_partners_group_wrapper)
+  target_selection = widgets.radiogroup(parent=target_selection_wrapper, options=['upstream', 'downstream', 'both'])
+  get_partners_wrapper = widgets.column(parent=get_partners_group_wrapper,  anchor='w')
+  get_partners = widgets.button(parent=get_partners_wrapper, label='Get partners', action=get_synaptic_partners_handler)
+  partners = widgets.countTextbox(parent=left_column, label='Partners')
 
-  columns_frame = ctk.CTkFrame(frame, fg_color='transparent')
-  columns_frame.pack(fill='x', padx=PADDING_X)
-
-  left_column = ctk.CTkFrame(columns_frame)
-  left_column.pack(side='left', fill='both', expand=True, padx=(0, 0))
-  
-  partners_label = ctk.CTkLabel(left_column, text='Partners', font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  partners_label.pack(anchor='w')
-  
-  partners = create_text_with_counter(left_column, TEXT_FIELD_WIDTH // 3, TEXT_FIELD_HEIGHT, padx=0)
-  
-  copy_partners = ctk.CTkButton(
-    left_column,
-    text='Copy',
-    width=SMALL_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT,
-    command=lambda: copy(partners)
-  )
-  copy_partners.pack(pady=(BUTTON_PADDING // 2, 0))
-
-  middle_column = ctk.CTkFrame(columns_frame, fg_color='transparent')
-  middle_column.pack(side='left', fill='y', padx=PADDING_X // 2)
-  
-  num_partners_label = ctk.CTkLabel(
-    middle_column, 
-    text='Number of most\ncommon partners',
-    font=(FONT_FAMILY, FONT_SIZE)
-  )
-  num_partners_label.pack(pady=(30, 0))
-  
-  number_of_partners = ctk.CTkEntry(middle_column, width=80, height=BUTTON_HEIGHT)
-  number_of_partners.pack()
-  number_of_partners.insert(0, '50')
-  
-  get_partners_of_partners_btn = ctk.CTkButton(
-    middle_column,
-    text='Get Partners\nof Partners',
-    width=150,
-    height=BUTTON_HEIGHT
-  )
-  get_partners_of_partners_btn.pack(pady=BUTTON_PADDING // 2)
-  get_partners_of_partners_btn.configure(command=lambda: get_partners_of_partners_handler())
-
-  add_original = ctk.CTkCheckBox(middle_column, text='Add the original partners')
-  add_original.pack(pady=BUTTON_PADDING // 2)
-  add_original.select()
-
-  find_common_of_common = ctk.CTkCheckBox(
-    middle_column,
-    text='Find common of common', 
-    command=lambda: update_filter_dust_label(find_common_of_common)
-  )
-  find_common_of_common.pack(pady=BUTTON_PADDING // 2)
-
-  def update_filter_dust_label(checkbox):
-    if checkbox.get():
-      filter_dust_btn.configure(text='Get common of common')
-    else:
-      filter_dust_btn.configure(text='Filter dust')
-
-  right_column = ctk.CTkFrame(columns_frame)
-  right_column.pack(side='left', fill='both', expand=True)
-  
-  partners_of_partners_label = ctk.CTkLabel(
-    right_column, 
-    text='Partners of Partners',
-    font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT)
-  )
-  partners_of_partners_label.pack(anchor='w')
-  
-  partners_of_partners = create_text_with_counter(right_column, TEXT_FIELD_WIDTH // 3, TEXT_FIELD_HEIGHT, padx=0)
-  
-  def copy_partners_of_partners_handler():
-    partners_text = partners_of_partners.get('1.0', 'end').strip()
-    if add_original.get():
-      original_partners = partners.get('1.0', 'end').strip()
-      combined_text = f'{partners_text}\n{original_partners}'
-      # Convert to array, remove duplicates and back to string
-      combined_array = combined_text.split('\n')
-      unique_array = list(dict.fromkeys(combined_array))  # Remove duplicates while preserving order
-      newline = '\r\n' if platform.system() == 'Windows' else '\n'
-      combined_text = newline.join(unique_array)
-      copytext(combined_text)
-    else:
-      copy(partners_of_partners)
-  copy_partners_of_partners = ctk.CTkButton(
-    right_column,
-    text='Copy',
-    width=SMALL_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT,
-    command=copy_partners_of_partners_handler
-  )
-  copy_partners_of_partners.pack(pady=(BUTTON_PADDING, 0))
-
-  dust_frame = ctk.CTkFrame(frame)
-  dust_frame.pack(fill='x', padx=PADDING_X, pady=(20, 10))
-  
-  filter_dust_btn = ctk.CTkButton(
-    dust_frame,
-    text='Remove dust',
-    width=LARGE_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT,
-    command=lambda: get_common_of_common_handler() if find_common_of_common.get() else filter_dust_handler()
-  )
-  filter_dust_btn.pack(side='left', padx=(0, BUTTON_PADDING))
-
-  def get_common_of_common_handler():
-    source_ids = clean_input(source.get('1.0', 'end').strip())
-    num_of_common_partners = int(number_of_partners.get())
-    results = get_common_of_common(source_ids, num_of_common_partners)
-    filtered_results.delete('1.0', 'end')
-    filtered_results.insert('1.0', '\n'.join(map(str, results)))
-
-  def filter_dust_handler():
-    show_loading_indicator(root)
-    max_size = max_dust_size.get().strip()
-    source_ids = clean_input(partners_of_partners.get('1.0', 'end').strip())
-    if add_original.get():
-      original_ids = clean_input(partners.get('1.0', 'end').strip())
-      source_ids += original_ids
-    filter_dust(source_ids, int(max_size), filter_dust_callback)
-
-  def filter_dust_callback(result):
-    if isinstance(result, str) and result.startswith('MSG:'):
-      msg_type = result.split(':')[1]
-      msg_content = ':'.join(result.split(':')[2:])
-      match msg_type:
-        case 'IN_PROGRESS':
-          filtered_results.delete('1.0', 'end')
-          filtered_results.insert('1.0', msg_content)
-        case 'COMPLETE':
-          hide_loading_indicator()
-          filtered_results.delete('1.0', 'end')
-          filtered_results.insert('1.0', '\n'.join(map(str, result)))
-        case 'ERROR':
-          hide_loading_indicator()
-          filtered_results.delete('1.0', 'end')
-          filtered_results.insert('1.0', msg_content)
-    else:
-      hide_loading_indicator()
-      filtered_results.delete('1.0', 'end')
-      filtered_results.insert('1.0', '\n'.join(map(str, result)))
-  
-  max_dust_size = ctk.CTkEntry(dust_frame, width=50, height=BUTTON_HEIGHT)
-  max_dust_size.pack(side='right')
-  max_dust_size.insert(0, '100')
-  
-  dust_size_label = ctk.CTkLabel(dust_frame, text='No of synapses', font=(FONT_FAMILY, FONT_SIZE))
-  dust_size_label.pack(side='right', padx=BUTTON_PADDING)
-
-  filtered_results_label = ctk.CTkLabel(frame, text='Filtered Results', font=(FONT_FAMILY, FONT_SIZE, FONT_WEIGHT))
-  filtered_results_label.pack(anchor='w', padx=PADDING_X)
-
-  filtered_results = create_text_with_counter(frame, TEXT_FIELD_WIDTH, TEXT_FIELD_HEIGHT)
-  
-  copy_filtered = ctk.CTkButton(
-    frame,
-    text='Copy',
-    width=LARGE_BUTTON_WIDTH,
-    height=BUTTON_HEIGHT,
-    command=lambda: copy(filtered_results)
-  )
-  copy_filtered.pack(pady=(BUTTON_PADDING // 2, BUTTON_PADDING), padx=PADDING_X, fill='x')
+  widgets.spacer(parent=left_column, height=46)
 
   def get_partners_of_partners_handler():
     show_loading_indicator(root)
-    num_of_partners = number_of_partners.get().strip()
-    partners_ids = clean_input(partners.get('1.0', 'end').strip())
-    get_partners_of_partners(num_of_partners, get_partners_of_partners_callback, partners_ids)
+    num_of_partners = no_of_partners.get().strip()
+    get_partners_of_partners(num_of_partners, get_partners_of_partners_callback)
   
   def get_partners_of_partners_callback(result):
     if isinstance(result, str) and result.startswith('MSG:'):
       msg_type = result.split(':')[1]
-      msg_content = ':'.join(result.split(':')[2:])
+      msg_content = ':'.join(result.split(':')[2:]
+      )
       match msg_type:
         case 'IN_PROGRESS':
           partners_of_partners.delete('1.0', 'end')
@@ -234,3 +75,74 @@ def create_synaptic_partners_section(root, x, y):
       hide_loading_indicator()
       partners_of_partners.delete('1.0', 'end')
       partners_of_partners.insert('1.0', '\n'.join(map(str, result)))
+      
+
+
+  widgets.button(parent=left_column, label='Get partners of partners', action=get_partners_of_partners_handler)
+  partners_of_partners = widgets.countTextbox(parent=left_column, label='Partners of partners')
+
+  right_column = widgets.column(parent=frame, border=True)
+
+  widgets.label(parent=right_column, text='For:')
+  common_target_selection_group = widgets.radiogroup(parent=right_column, options=['partners', 'partners of partners'])
+
+  widgets.spacer(parent=right_column, height=10)
+
+  
+  def get_common_handler():
+    source_ids = clean_input(input_ids.get('1.0', 'end').strip())
+    num_of_common_partners = int(no_of_partners.get())
+    results = get_common_of_common(source_ids, num_of_common_partners)
+    filtered_partners.delete('1.0', 'end')
+    filtered_partners.insert('1.0', '\n'.join(map(str, results)))
+
+  def filter_dust_handler():
+    show_loading_indicator(root)
+    max_size = no_of_synapses.get().strip()
+    source_ids = clean_input(partners_of_partners.get('1.0', 'end').strip())
+    filter_dust(source_ids, int(max_size), filter_dust_callback)
+
+  def filter_dust_callback(result):
+    if isinstance(result, str) and result.startswith('MSG:'):
+      msg_type = result.split(':')[1]
+      msg_content = ':'.join(result.split(':')[2:])
+      match msg_type:
+        case 'IN_PROGRESS':
+          filtered_partners.delete('1.0', 'end')
+          filtered_partners.insert('1.0', msg_content)
+        case 'COMPLETE':
+          hide_loading_indicator()
+          filtered_partners.delete('1.0', 'end')
+          filtered_partners.insert('1.0', '\n'.join(map(str, result)))
+        case 'ERROR':
+          hide_loading_indicator()
+          filtered_partners.delete('1.0', 'end')
+          filtered_partners.insert('1.0', msg_content)
+    else:
+      hide_loading_indicator()
+      filtered_partners.delete('1.0', 'end')
+      filtered_partners.insert('1.0', '\n'.join(map(str, result)))
+  
+
+  border1 = widgets.column_wrapper(parent=right_column, border=True)
+  widgets.header(parent=border1, text='Get common partners')
+
+  get_common_wrapper = widgets.column_wrapper(parent=border1)
+  get_common_button_column = widgets.column(parent=get_common_wrapper, anchor='sw')
+  get_common_button = widgets.button(parent=get_common_button_column, label='Get', action=get_common_handler)
+  no_of_partners_wrapper = widgets.column(parent=get_common_wrapper)
+  no_of_partners = widgets.labeledEntry(parent=no_of_partners_wrapper, label='No of partners', default_value='50')
+  common_partners = widgets.countTextbox(parent=border1, label='Common partners')
+
+  widgets.spacer(parent=right_column, height=10)
+  
+  border2 = widgets.column_wrapper(parent=right_column, border=True)
+  widgets.header(parent=border2, text='Filter by number of synapses')
+
+  filter_wrapper = widgets.column_wrapper(parent=border2)
+  filter_button_column = widgets.column(parent=filter_wrapper, anchor='sw')
+  filter_button = widgets.button(parent=filter_button_column, label='Filter', action=filter_dust_handler)
+  no_of_synapses_wrapper = widgets.column(parent=filter_wrapper)
+  no_of_synapses = widgets.labeledEntry(parent=no_of_synapses_wrapper, label='No of synapses', default_value='100')
+  filtered_partners = widgets.countTextbox(parent=border2, label='Filtered')
+  

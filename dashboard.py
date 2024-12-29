@@ -30,12 +30,12 @@ tabs = {
   'connectivity': tabview.add('Connectivity'),
 }
 
-create_annotated_section(tabs['annotated'], 0, 0)
-create_synaptic_partners_section(tabs['synaptic'], 0, 0)
-create_update_outdated_section(tabs['outdated'], 0, 0)
-create_proofread_section(tabs['proofread'], 0, 0)
-create_differences_section(tabs['differences'], 0, 0)
-create_coords_section(tabs['coords'], 0, 0)
-create_connectivity_section(tabs['connectivity'], 0, 0)
+create_annotated_section(tabs['annotated'])
+create_synaptic_partners_section(tabs['synaptic'])
+create_update_outdated_section(tabs['outdated'])
+create_proofread_section(tabs['proofread'])
+create_differences_section(tabs['differences'])
+create_coords_section(tabs['coords'])
+create_connectivity_section(tabs['connectivity'])
 
 root.mainloop()

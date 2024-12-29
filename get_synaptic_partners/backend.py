@@ -10,91 +10,114 @@ from collections import Counter
 
 all_partners_ids = []
 
-def get_synaptic_partners(source_ids, callback, return_complete_data=False):
+upstream_partners = pd.Series()
+downstream_partners = pd.Series()
+
+def get_synaptic_partners(source_ids, callback, direction='downstream', return_complete_data=False, save_globally=True):
   threading.Thread(target=lambda: get_synaptic_partners_request(
     source_ids,
     callback,
-    return_complete_data
+    direction,
+    return_complete_data,
+    save_globally,
   ), daemon=True).start()
 
-def get_synaptic_partners_request(source_ids, callback, return_complete_data=False):
+def get_synaptic_partners_request(source_ids, callback, direction='downstream', return_complete_data=False, save_globally=True):
+  global upstream_partners
+  global downstream_partners
+  downstream = []
+  upstream = []
+  if save_globally:
+    upstream_partners = pd.Series()
+    downstream_partners = pd.Series()
   try:
-    client = CAVEclient(
-      datastack_name='brain_and_nerve_cord',
-      auth_token=API_TOKEN
-    )
-
+    client = CAVEclient(datastack_name='brain_and_nerve_cord', auth_token=API_TOKEN)
     BATCH_SIZE = 50
-    all_ids = []
+
     total_batches = (len(source_ids) + BATCH_SIZE - 1) // BATCH_SIZE
-    
     for i in range(0, len(source_ids), BATCH_SIZE):
       batch = source_ids[i:i+BATCH_SIZE]
       current_batch = (i // BATCH_SIZE) + 1
-      
       # Update progress with prefix to prevent splitting
       callback(f'MSG:IN_PROGRESS:Processing batch {current_batch} of {total_batches}...')
-      
-      batch_ids = client.materialize.synapse_query(pre_ids=batch, post_ids=batch)
-      all_ids.append(batch_ids)
 
-    # Combine all results
-    if len(all_ids) > 0:
-      ids = pd.concat(all_ids, ignore_index=True)
-      if (return_complete_data):
-         return callback(ids)
-      pd.set_option('display.max_columns', None) #temp
-      #print(ids.head()) #temp
-      # Extract post_pt_root_ids
-      post_ids = set(ids['post_pt_root_id'].unique())
-      
-      # Store all partners including duplicates in global variable  
-      global all_partners_ids
-      all_partners_ids = ids['post_pt_root_id'].tolist()
-      
-      # Send completion message before results
-      callback('MSG:COMPLETE:Processing complete')
-      callback(sorted(post_ids))
+      if direction == 'downstream' or direction == 'both':
+        downstream.append(client.materialize.synapse_query(pre_ids=batch))
+      if direction == 'upstream' or direction == 'both':
+        upstream.append(client.materialize.synapse_query(post_ids=batch))
+
+    if downstream or upstream:
+      if downstream:
+        downstream = pd.concat(downstream, ignore_index=True)['post_pt_root_id']
+      if upstream:
+        upstream = pd.concat(upstream, ignore_index=True)['pre_pt_root_id']
+
+      if save_globally:
+        upstream_partners = upstream
+        downstream_partners = downstream
+
+      unique_ids = set(upstream) | set(downstream)
+      if return_complete_data:
+        return callback(list(unique_ids))
+
+      callback(sorted(unique_ids))
     else:
       callback('MSG:COMPLETE:No results found')
-      callback([])
 
   except Exception as e:
-    print(f'Full error: {str(e)}')
-    callback(f'MSG:ERROR:Error: {str(e)}')
+    callback(f'MSG:ERROR:Error: {repr(e)}')
 
-def get_partners_of_partners(num_of_partners, callback, partners_ids):
+def get_partners_of_partners(num_of_partners, callback):
   threading.Thread(target=lambda: get_partners_of_partners_request(
     num_of_partners,
-    callback,
-    partners_ids
+    callback
   ), daemon=True).start()
 
-def get_partners_of_partners_request(num_of_partners, callback, partners_ids):
-  global all_partners_ids
+def get_partners_of_partners_request(num_of_partners, callback):
+  global upstream_partners
+  global downstream_partners
+
+  def get_n_most_common(n, items):
+    return [id for id, _ in Counter(items).most_common(int(n))]
+
   try:
-    # Count occurrences of each id in source_ids
-    id_counts = {}
-    if not len(all_partners_ids):
-      all_partners_ids = partners_ids
+    most_common_upstream = []
+    most_common_downstream = []
+    if isinstance(upstream_partners, pd.core.series.Series) and not upstream_partners.empty:
+      most_common_upstream = get_n_most_common(num_of_partners, upstream_partners)
+    if isinstance(downstream_partners, pd.core.series.Series) and not downstream_partners.empty:
+      most_common_downstream = get_n_most_common(num_of_partners, downstream_partners)
 
-    for id in all_partners_ids:
-      id_counts[id] = id_counts.get(id, 0) + 1
-    # Sort by count and get top num_of_partners
-    try:
-      num_partners = int(num_of_partners)
-    except:
-      num_partners = 50  # Default if invalid input
-      
-    most_common = sorted(id_counts.items(), key=lambda x: x[1], reverse=True)[:num_partners]
-    most_common_ids = [id for id, count in most_common]
+    def local_callback(result):
+      if isinstance(result, str) and result.startswith('MSG:'):
+        callback(result)
+      else:
+        local_callback.result.extend(result)
+        local_callback.call_count += 1
+      if local_callback.call_count == local_callback.expected_calls:
+        callback(local_callback.result)
 
-    # Get partners of the most common partners
-    get_synaptic_partners(most_common_ids, callback)
+    local_callback.call_count = 0
+    local_callback.expected_calls = 2 if most_common_upstream and most_common_downstream else 1
+    local_callback.result = []
 
+    if most_common_upstream:
+      get_synaptic_partners(most_common_upstream, local_callback, save_globally=False, direction='downstream')
+    if most_common_downstream:
+      get_synaptic_partners(most_common_downstream, local_callback, save_globally=False, direction='upstream')
   except Exception as e:
-    print(e.with_traceback())
-    callback(f'Error: {str(e)}')
+    callback(f'Error2: {str(e)}')
+
+
+
+
+
+
+
+
+
+
+
 
 def get_common_of_common(source_ids, x=20):
   id_counts = Counter(all_partners_ids)
