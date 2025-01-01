@@ -20,3 +20,8 @@ class Size(IntEnum):
   HALF = FULL_WIDTH // 2
   TWO_THIRDS = FULL_WIDTH * 2 // 3
   FULL = FULL_WIDTH
+
+class Status(IntEnum):
+  FINISHED = 0
+  IN_PROGRESS = 1
+  ERROR = 2
