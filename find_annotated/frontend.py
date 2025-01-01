@@ -73,13 +73,12 @@ def create_annotated_section(root):
     find_text = find_entry.get().strip()
 
     def callback(found):
-      results.delete('1.0', 'end')
       if isinstance(found, str) and found.startswith('MSG:'):
-        results.insert('1.0', found[4:])
+        insert(results, found[4:])
       elif found:
-        results.insert('1.0', '\n'.join(str(row_id) for row_id in found))
+        insert(results, '\n'.join(str(row_id) for row_id in found))
       else:
-        results.insert('1.0', 'No matches found')
+        insert(results, 'No matches found')
       hide_loading_indicator()
 
     find_annotated(find_text, callback)

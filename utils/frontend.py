@@ -1,4 +1,4 @@
-__all__ = ['ctk', 'show_loading_indicator', 'hide_loading_indicator', 'widgets']
+__all__ = ['ctk', 'show_loading_indicator', 'hide_loading_indicator', 'insert', 'widgets']
 
 from constants import *
 from .backend import *
@@ -28,6 +28,9 @@ def hide_loading_indicator():
     loading_indicator.place_forget()
     loading_indicator = None
 
+def insert(where, what):
+  where.delete('1.0', 'end')
+  where.insert('1.0', what)
 
 def countTextbox(parent, label=''):
   container = ctk.CTkFrame(parent, fg_color='transparent')
@@ -45,7 +48,7 @@ def countTextbox(parent, label=''):
       ),
       text_color='#2CA06F'
     )
-    lbl.pack(anchor='w', pady=(15, 0), padx=(5, 0)) # 15 to have some vertical space from the previous widget
+    lbl.pack(anchor='w', pady=(5, 0), padx=(5, 0))
 
   textbox = ctk.CTkTextbox(container, height=TEXT_FIELD_HEIGHT)
   textbox.pack(fill='x', anchor='nw', padx=2, pady=(0, 2))
@@ -57,7 +60,7 @@ def countTextbox(parent, label=''):
     fg_color='gray20',
     corner_radius=6
   )
-  counter.place(relx=1.0, x=-2, y=45, anchor='ne')
+  counter.place(relx=1.0, x=-2, y=33, anchor='ne')
 
   copy_button = ctk.CTkButton(
     container,
@@ -169,7 +172,7 @@ def labeledEntry(parent, label, default_value='0'):
 
 
 def column_wrapper(parent, border=False):
-  col = ctk.CTkFrame(parent, border_width=1 if border else 0, border_color='#444')
+  col = ctk.CTkFrame(parent, fg_color='transparent', border_width=1 if border else 0, border_color='#444')
   col.pack(fill='x', expand=True, padx=5, pady=5, anchor='nw')
   return col
 

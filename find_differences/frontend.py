@@ -13,9 +13,8 @@ def create_differences_section(root):
 
   def find_differences_callback(results):
     def fill(field, target):
-      target.delete('1.0', 'end')
       text = '\n'.join(map(str, results[field])) if results[field] else 'None'
-      target.insert('1.0', text)
+      insert(target, text)
 
     fill('a_only', a_only_textbox)
     fill('a_plus_b', a_plus_b_textbox)
