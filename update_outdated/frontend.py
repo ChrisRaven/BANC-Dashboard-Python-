@@ -18,10 +18,8 @@ def create_update_outdated_section(root):
     
   def update_callback(result1, result2):
     hide_loading_indicator()
-    source_without_outdated.delete('1.0', 'end')
-    source_without_outdated.insert('1.0', '\n'.join(map(str, result1)))
-    updated.delete('1.0', 'end')
-    updated.insert('1.0', '\n'.join(map(str, result2)))
+    insert(source_without_outdated, '\n'.join(map(str, result1)))
+    insert(updated, '\n'.join(map(str, result2)))
 
   source_without_outdated = widgets.countTextbox(parent=frame, label='Source without Outdated')
   updated = widgets.countTextbox(parent=frame, label='Updated')

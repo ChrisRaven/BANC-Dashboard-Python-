@@ -16,10 +16,8 @@ def create_proofread_section(root):
     
     def proofread_callback(proofread_ids, not_proofread_ids):
       hide_loading_indicator()
-      proofread.delete('1.0', 'end')
-      proofread.insert('1.0', '\n'.join(map(str, proofread_ids)))
-      not_proofread.delete('1.0', 'end')
-      not_proofread.insert('1.0', '\n'.join(map(str, not_proofread_ids)))
+      insert(proofread, '\n'.join(map(str, proofread_ids)))
+      insert(not_proofread, '\n'.join(map(str, not_proofread_ids)))
       
     get_proofread(source_data, proofread_callback)
 

@@ -17,10 +17,8 @@ def create_coords_section(root):
     def callback(valid_coords, invalid_segment_ids):
       hide_loading_indicator()
       if len(valid_coords) or len(invalid_segment_ids):
-        correct_coords.delete('1.0', 'end')
-        correct_coords.insert('1.0', valid_coords)
-        incorrect_ids.delete('1.0', 'end')
-        incorrect_ids.insert('1.0', invalid_segment_ids)
+        insert(correct_coords, valid_coords)
+        insert(incorrect_ids, invalid_segment_ids)
       else:
         error_message = 'Invalid coordinates or segment IDs. Please check and try again'
         widgets.label(parent=frame, text=error_message)
