@@ -24,11 +24,11 @@ data = {
   'direction': ''
 }
 
-def get_synaptic_partners(source_ids, callback, direction='downstream'):
-  threading.Thread(target=lambda: _get_SP_thread(source_ids, callback, direction=direction), daemon=True).start()
+def get_synaptic_partners(source_ids, callback, direction='downstream', raw=False):
+  threading.Thread(target=lambda: _get_SP_thread(source_ids, callback, direction=direction, raw=raw), daemon=True).start()
 
 
-def _get_SP_thread(source_ids, callback, direction='downstream'):
+def _get_SP_thread(source_ids, callback, direction='downstream', raw=False):
   try:
     data['direction'] = direction
 
@@ -45,32 +45,41 @@ def _get_SP_thread(source_ids, callback, direction='downstream'):
 
       local_callback.executed_calls += 1
       if local_callback.executed_calls == local_callback.expected_calls:
-        upstream = set(data['partners']['upstream'])
-        downstream = set(data['partners']['downstream'])
+        upstream = data['partners']['upstream']
+        downstream = data['partners']['downstream']
 
-        final_result = set()
-        match direction:
-          case 'upstream':
-            final_result = upstream
-          case 'downstream':
-            final_result = downstream
-          case 'both':
-            final_result = upstream | downstream
+        if raw:
+          callback({
+            'status': Status.FINISHED,
+            'content': {
+              'upstream': upstream,
+              'downstream': downstream
+            }
+          })
+        else:
+          final_result = set()
+          match direction:
+            case 'upstream':
+              final_result = set(upstream)
+            case 'downstream':
+              final_result = set(downstream)
+            case 'both':
+              final_result = set(upstream) | set(downstream)
 
-        callback({
-          'status': Status.FINISHED,
-          'content': sorted(final_result)
-        })
+          callback({
+            'status': Status.FINISHED,
+            'content': sorted(final_result)
+          })
 
     local_callback.expected_calls = 2 if direction == 'both' else 1
     local_callback.executed_calls = 0
 
     if direction == 'downstream' or direction == 'both':
       bound_callback = partial(local_callback, local_direction='downstream')
-      _get_directional_SP(source_ids, callback=bound_callback , direction='downstream')
+      _get_directional_SP(source_ids, callback=bound_callback , direction='downstream', raw=raw)
     if direction == 'upstream' or direction == 'both':
       bound_callback = partial(local_callback, local_direction='upstream')
-      _get_directional_SP(source_ids, callback=bound_callback, direction='upstream')
+      _get_directional_SP(source_ids, callback=bound_callback, direction='upstream', raw=raw)
 
   except Exception as e:
     callback({
@@ -79,7 +88,7 @@ def _get_SP_thread(source_ids, callback, direction='downstream'):
     })
 
 
-def _get_directional_SP(source_ids, callback, direction):
+def _get_directional_SP(source_ids, callback, direction, raw=False):
   try:
     client = CAVEclient(datastack_name='brain_and_nerve_cord', auth_token=API_TOKEN)
     BATCH_SIZE = 50
@@ -95,10 +104,10 @@ def _get_directional_SP(source_ids, callback, direction):
       })
       result = pd.concat([result, client.materialize.synapse_query(**{key_query: batch})], ignore_index=True)
     if not result.empty:
-      unique_ids = result[key_result]
+      final_result = result if raw else result[key_result]
       callback({
         'status': Status.FINISHED,
-        'content': unique_ids
+        'content': final_result
       })
     else:
       callback({

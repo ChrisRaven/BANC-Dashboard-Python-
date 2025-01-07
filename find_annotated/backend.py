@@ -61,7 +61,8 @@ def make_request(table_name, callback, return_result=False):
   except Exception as e:
     callback('ERR:' + e)
   finally:
-    callback(len(entries_result) if isinstance(entries_result, pd.DataFrame) else '')
+    if not return_result:
+      callback(len(entries_result) if isinstance(entries_result, pd.DataFrame) else '')
 
 
 def find_annotated(search_text, callback):
