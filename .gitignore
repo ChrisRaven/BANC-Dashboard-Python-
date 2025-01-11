@@ -1,6 +1,7 @@
 __pycache__/
 dist/
 build/
+skeleton_cache/
 api_token.py
 .vscode/settings.json
 dashboard.spec

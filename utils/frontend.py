@@ -171,6 +171,12 @@ def labeledEntry(parent, label, default_value='0'):
   return entry
 
 
+def frame(parent):
+  frame = ctk.CTkFrame(parent)
+  frame.pack(fill='both', expand=True)
+  return frame
+
+
 def column_wrapper(parent, border=False):
   col = ctk.CTkFrame(parent, fg_color='transparent', border_width=1 if border else 0, border_color='#444')
   col.pack(fill='x', expand=True, padx=5, pady=5, anchor='nw')
@@ -223,6 +229,7 @@ widgets = SimpleNamespace(
   button = button,
   entry = entry,
   labeledEntry = labeledEntry,
+  frame = frame,
   column_wrapper = column_wrapper,
   column=column,
   spacer=spacer,

@@ -1,42 +1,26 @@
 __all__ = ['get_clusters', 'recluster', 'get_nblast_clusters']
 
-DEBUG = True
-SAVE = False
-
 import threading
+import meshparty.skeleton_io as mpsk
 from utils.backend import *
 from constants import *
 from find_annotated.backend import get_entries
 from get_synaptic_partners.backend import get_synaptic_partners
 import numpy as np
-import pyperclip
 from functools import partial
-from sklearn.cluster import DBSCAN
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-
-from anytree import Node, RenderTree
-
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import DBSCAN
-from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import silhouette_score
-from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from scipy.spatial.distance import pdist
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from scipy.cluster.hierarchy import linkage, fcluster
 from concurrent.futures import ThreadPoolExecutor
 import banc
-import requests
-import json
-from io import StringIO
 import pandas as pd
-from api_token import API_TOKEN
-from caveclient import CAVEclient
 import banc
-import fafbseg
 import navis
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+
 
 # Store the merged_partners data
 _merged_partners_data = None
@@ -294,16 +278,39 @@ def _perform_clustering(merged_partners, callback, eps):
     'linkage': Z    # Add linkage matrix for better dendrogram updates
   })
 
-def skeleton_to_TreeNeuron(skeleton):
-  nodes = []  # Will hold (id, x, y, z, radius, parent_id) tuples
-  for i, coord in enumerate(skeleton.vertices):
-    radius = 1  # Placeholder radius, adjust if available
-    parent_id = skeleton.parent_index
-    nodes.append((i, coord[0], coord[1], coord[2], radius, parent_id))
-    columns = ['node_id', 'x', 'y', 'z', 'radius', 'parent_id']
-  return navis.TreeNeuron(pd.DataFrame(data=nodes, columns=columns))
+def download_skeleton(nid):
+  path = os.path.join('skeleton_cache', f'{nid}.h5')
+  if os.path.exists(path):
+    skel = mpsk.read_skeleton_h5(path)
+  else:
+    skel = banc.skeletonize.get_pcg_skeleton(nid)
+    mpsk.write_skeleton_h5(skel, path)
 
-def get_nblast_clusters_original(neuron_ids_text, callback, eps):
+  neuron = navis.make_dotprops(banc.skeletonize.mp_to_navis(skel, xyz_scaling=1000))
+  return neuron
+
+def download_all_skeletons(nids):
+  results = []
+  with ThreadPoolExecutor(max_workers=10) as executor:
+    futures = {executor.submit(download_skeleton, nid): nid for nid in nids}
+    for future in as_completed(futures):
+      nid = futures[future]
+      try:
+        result = future.result()
+        results.append(result)
+      except Exception as e:
+        print(f"Error downloading skeleton for {nid}: {e}")
+  return results
+
+def _calculate_distances(neuron_ids):
+  neurons = download_all_skeletons(neuron_ids)
+  nblast_scores = navis.nblast_allbyall(neurons, normalized=True)
+  averaged_nblast_scores = (nblast_scores + nblast_scores.T) / 2
+  distances = 1 - averaged_nblast_scores
+  
+  return distances
+
+def get_nblast_clusters(neuron_ids_text, callback, eps):
   def worker():
     global _current_nblast_data
     try:
@@ -314,76 +321,25 @@ def get_nblast_clusters_original(neuron_ids_text, callback, eps):
       elif _current_nblast_data is not None:
         # Use stored neuron IDs if reclustering
         neuron_ids = _current_nblast_data['neuron_ids']
-      else:
-        callback("MSG:No data available for reclustering")
-        return
-
-      # Use stored data for clustering if available
-      if _current_nblast_data is not None:
         distances = _current_nblast_data['distances']
-      else:
-        neurons = []
-        for nid in neuron_ids:
-          try:
-            skel = banc.skeletonize.get_pcg_skeleton(nid)
-            skel.parent_index = nid
-            neuron = navis.make_dotprops(skeleton_to_TreeNeuron(skel))
-            neurons.append(neuron)
-          except Exception as e:
-            print(f"MSG:Error loading skeleton for {nid}: {str(e)}")
-            callback(f"MSG:Error loading skeleton for {nid}: {str(e)}")
-            return
-        
-        if len(neurons) < 2:
+
+      if not _current_nblast_data:
+        if len(neuron_ids) < 2:
           callback("MSG:Need at least 2 neurons for clustering")
           return
+        distances = _calculate_distances(neuron_ids)
 
-        # Get all-by-all NBLAST scores
-        nblast_scores = navis.nblast_allbyall(neurons)
-        # Convert similarity scores to distances
-        distances = 1 - nblast_scores.values
-        np.fill_diagonal(distances, 0)
-        
         # Store the data for reclustering
         _current_nblast_data = {
           'distances': distances,
           'neuron_ids': neuron_ids
         }
-      
-      # Get condensed distance matrix (upper triangle)
-      dist_condensed = distances[np.triu_indices(len(neuron_ids), k=1)]
-      
-      # Perform hierarchical clustering
-      Z = linkage(dist_condensed, method='ward')
-      
-      # Get cluster labels using the current eps value
-      scaled_eps = eps / 100  # eps is already 0-100
-      labels = fcluster(Z, scaled_eps, criterion='distance') - 1  # 0-based indexing
-      
-      # Group neurons by cluster
-      clusters = []
-      unique_labels = np.unique(labels)
-      for label in unique_labels:
-        cluster_neurons = [neuron_ids[i] for i, l in enumerate(labels) if l == label]
-        if cluster_neurons:  # Only add non-empty clusters
-          clusters.append({
-            'type': 'cluster',
-            'neurons': cluster_neurons,
-            'size': len(cluster_neurons),
-            'patterns': []
-          })
-      
-      # Sort clusters by size
-      clusters.sort(key=lambda x: -x['size'])
-      
-      # Prepare results with fresh clustering
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.max_rows", None)
+
       result = {
-        'distances': distances,
-        'linkage': Z,
-        'eps_used': eps,
-        'n_clusters': len(clusters),
-        'clusters': clusters,
-        'neuron_ids': neuron_ids
+        **_current_nblast_data,
+        'eps_used': eps
       }
       callback(result)
     
@@ -392,37 +348,3 @@ def get_nblast_clusters_original(neuron_ids_text, callback, eps):
       callback(f"MSG:Error during NBLAST clustering: {str(e)}")
   
   threading.Thread(target=worker).start()
-
-def get_nblast_clusters(neuron_ids_text, callback, eps):
-  global _current_nblast_data
-
-  def save_data(data):
-    import json
-    data_serializable = {key: value.tolist() if isinstance(value, np.ndarray) else value for key, value in data.items()}
-
-    # Save the modified dictionary to a JSON file
-    with open('data.json', 'w') as f:
-      json.dump(data_serializable, f)
-
-  def sideload_data():
-    import json
-    with open('data.json', 'r') as f:
-      data = json.load(f)
-
-    data['distances'] = np.array(data['distances'])
-    data['linkage'] = np.array(data['linkage'])
-    #data['eps_used'] = float(data['eps_used'])
-    data['eps_used'] = eps
-    return data
-
-  if not DEBUG:
-    get_nblast_clusters_original(neuron_ids_text, callback, eps)
-  else:
-    data = None
-    if SAVE:
-      save_data(data)
-    else:
-      data = sideload_data()
-      _current_nblast_data = data
-
-    callback(data)
