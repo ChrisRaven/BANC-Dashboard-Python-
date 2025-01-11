@@ -286,11 +286,11 @@ def download_skeleton(nid):
     skel = banc.skeletonize.get_pcg_skeleton(nid)
     mpsk.write_skeleton_h5(skel, path)
 
-  neuron = navis.make_dotprops(banc.skeletonize.mp_to_navis(skel, xyz_scaling=1000))
-  return neuron
+  skel = banc.skeletonize.mp_to_navis(skel, xyz_scaling=1000)
+  return skel
 
 def download_all_skeletons(nids):
-  results = []
+  results = navis.NeuronList([])
   with ThreadPoolExecutor(max_workers=10) as executor:
     futures = {executor.submit(download_skeleton, nid): nid for nid in nids}
     for future in as_completed(futures):
@@ -303,7 +303,8 @@ def download_all_skeletons(nids):
   return results
 
 def _calculate_distances(neuron_ids):
-  neurons = download_all_skeletons(neuron_ids)
+  skeletons = download_all_skeletons(neuron_ids)
+  neurons = navis.make_dotprops(skeletons)
   nblast_scores = navis.nblast_allbyall(neurons, normalized=True)
   averaged_nblast_scores = (nblast_scores + nblast_scores.T) / 2
   distances = 1 - averaged_nblast_scores

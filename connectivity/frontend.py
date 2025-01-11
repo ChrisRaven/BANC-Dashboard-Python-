@@ -20,6 +20,7 @@ canvas = None
 averaged_nblast_scores = None
 cluster_count_label = None
 averaged_nblast_scores = None
+Z = None
 
 def show_message(msg):
     widgets.frame(results_container)
@@ -38,17 +39,17 @@ def update_threshold_line(value):
         print(f"Error in update_threshold_line: {str(e)}")
 
 def _normalize_linkage(Z):
-    height_range = Z[:, 2].max() - Z[:, 2].min()
+    heights = Z[:, 2]
+    min_height = heights.min()
+    max_height = heights.max()
+    height_range = max_height - min_height
     if height_range > 0:
-        padding = 0.05 * height_range  # Add padding of 10% of the range on both sides
-        Z_normalized = Z.copy()
-        Z_normalized[:, 2] = (Z[:, 2] - Z[:, 2].min() + padding) / (height_range + 2 * padding)
-    else:
-        Z_normalized = Z
-    return Z_normalized
+        padding = 0.05 * height_range  # Add padding of 5% of the range on both sides
+        Z[:, 2] = (heights - min_height + padding) / (height_range + 2 * padding)
+    return Z
 
 def update_dendrogram(distances, eps):
-    global current_ax, threshold_line, canvas, averaged_nblast_scores
+    global current_ax, threshold_line, canvas, averaged_nblast_scores, Z
     averaged_nblast_scores = 1 - distances
 
     if current_ax is not None:
@@ -56,16 +57,16 @@ def update_dendrogram(distances, eps):
     threshold_line = None
 
     aba_vec = squareform(distances, checks=False)
-    Z = linkage(aba_vec, method="ward")
+    Z = linkage(aba_vec, method="ward", optimal_ordering=True)
 
     color_threshold = eps / 100
-    dendrogram(
+    res = dendrogram(
         _normalize_linkage(Z),
         ax=current_ax,
         no_labels=True,
         color_threshold=color_threshold,
         above_threshold_color='gray',
-        leaf_rotation=0
+        leaf_rotation=0,
     )
 
     threshold_line = current_ax.axhline(y=color_threshold, color='r', linestyle='--')
@@ -88,6 +89,26 @@ def display_clusters(data):
     try:
         if 'distances' in data:
             update_dendrogram(data['distances'], data['eps_used'])
+        
+            epsilon = data['eps_used']
+            neuron_ids = data['neuron_ids']
+            cluster_labels = fcluster(Z, t=epsilon/100, criterion='distance')
+
+            # Reorder the cluster labels to match the optimized order in Z
+            # The row indices of Z correspond to the cluster merges; get the optimal order
+            optimized_order = Z[:, 0:2].astype(int).flatten()
+            # We need to extract the final order of neuron_ids after hierarchical clustering
+            
+            final_order = np.argsort(optimized_order)
+
+            # Reorder the cluster labels to match the optimized order
+            reordered_cluster_labels = cluster_labels[final_order]
+
+            # Group neurons by their cluster labels in the optimized order
+            clusters = {}
+            for i, label in enumerate(reordered_cluster_labels):
+                neuron_id = neuron_ids[i]
+                clusters.setdefault(label, []).append(neuron_id)
 
         # Reuse the existing frame or create if none
         if current_frame is None:
@@ -98,11 +119,11 @@ def display_clusters(data):
             for widget in current_frame.winfo_children():
                 if isinstance(widget, ctk.CTkFrame):  # Only destroy cluster frames
                     widget.destroy()
-        '''
+        
         # Update the cluster count label
         if cluster_count_label:
-            cluster_count_label.configure(text=f"Found 1 clusters")
-        for cluster in data['clusters']:
+            cluster_count_label.configure(text=f"Found {len(clusters)} clusters")
+        for cluster_id, neuron_ids in clusters.items():
             try:
                 cluster_frame = ctk.CTkFrame(current_frame)
                 cluster_frame.pack(fill='x', pady=5, padx=5)
@@ -110,14 +131,14 @@ def display_clusters(data):
                 header_frame = ctk.CTkFrame(cluster_frame)
                 header_frame.pack(fill='x', padx=5, pady=5)
 
-                title = f"Cluster ({cluster['size']} neurons)"
+                title = f"Cluster ({len(neuron_ids)} neurons)"
                 ctk.CTkLabel(
                     header_frame,
                     text=title,
                     font=(FONT_FAMILY, 12, "bold")
                 ).pack(side='left')
 
-                copy_cmd = lambda n=cluster['neurons']: copy_neurons(n)
+                copy_cmd = lambda n=neuron_ids: copy_neurons(n)
                 ctk.CTkButton(
                     header_frame,
                     text="Copy IDs",
@@ -128,12 +149,12 @@ def display_clusters(data):
 
                 neuron_text = ctk.CTkTextbox(cluster_frame, height=50)
                 neuron_text.pack(fill='x', padx=5, pady=(0, 5))
-                neuron_text.insert('1.0', ' '.join(map(str, cluster['neurons'])))
+                neuron_text.insert('1.0', ' '.join(map(str, neuron_ids)))
                 neuron_text.configure(state='disabled')
 
             except Exception as e:
                 print(f"Error creating cluster UI: {str(e)}")
-    '''
+    
     except Exception as e:
         print(f"Error in display_clusters: {str(e)}")
         show_message(f"Error displaying clusters: {str(e)}")
