@@ -57,10 +57,10 @@ def update_dendrogram(distances, eps):
     threshold_line = None
 
     aba_vec = squareform(distances, checks=False)
-    Z = linkage(aba_vec, method="ward", optimal_ordering=True)
+    Z = linkage(aba_vec, method="ward", optimal_ordering=False)
 
     color_threshold = eps / 100
-    res = dendrogram(
+    dendro = dendrogram(
         _normalize_linkage(Z),
         ax=current_ax,
         no_labels=True,
@@ -79,6 +79,8 @@ def update_dendrogram(distances, eps):
     current_ax.figure.tight_layout()
     canvas.draw()
 
+    return dendro
+
 def display_clusters(data):
     global current_frame, cluster_count_label
 
@@ -88,26 +90,22 @@ def display_clusters(data):
 
     try:
         if 'distances' in data:
-            update_dendrogram(data['distances'], data['eps_used'])
+            dendro = update_dendrogram(data['distances'], data['eps_used'])
         
             epsilon = data['eps_used']
             neuron_ids = data['neuron_ids']
             cluster_labels = fcluster(Z, t=epsilon/100, criterion='distance')
 
-            # Reorder the cluster labels to match the optimized order in Z
-            # The row indices of Z correspond to the cluster merges; get the optimal order
-            optimized_order = Z[:, 0:2].astype(int).flatten()
+            optimized_order = dendro['leaves']
             # We need to extract the final order of neuron_ids after hierarchical clustering
-            
-            final_order = np.argsort(optimized_order)
 
             # Reorder the cluster labels to match the optimized order
-            reordered_cluster_labels = cluster_labels[final_order]
+            reordered_cluster_labels = [cluster_labels[i] for i in optimized_order]
 
             # Group neurons by their cluster labels in the optimized order
             clusters = {}
             for i, label in enumerate(reordered_cluster_labels):
-                neuron_id = neuron_ids[i]
+                neuron_id = neuron_ids[optimized_order[i]]  # Use optimized order here
                 clusters.setdefault(label, []).append(neuron_id)
 
         # Reuse the existing frame or create if none
