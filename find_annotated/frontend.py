@@ -60,10 +60,16 @@ def create_annotated_section(root):
   find_entry = widgets.labeledEntry(parent=find_entry_column, label='Annotations to search for')
 
   if last_entered_value:
+    find_entry.delete(0, 'end')
     find_entry.insert(0, last_entered_value)
 
+  
   def on_search_entry_change(event=None):
-    save_search_entry()
+    nonlocal last_entered_value
+    new_value = find_entry.get()
+    if new_value != last_entered_value:
+      last_entered_value = new_value
+      save_search_entry()
 
   find_entry.bind('<KeyRelease>', on_search_entry_change)
   
