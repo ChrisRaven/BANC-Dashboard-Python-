@@ -1,4 +1,4 @@
-__all__ = ['get_entries', 'find_annotated']
+__all__ = ['get_entries', 'find_annotated', 'get_user_annotation_counts']
 
 import pandas as pd
 import pyarrow as pa
@@ -63,6 +63,25 @@ def make_request(table_name, callback, return_result=False):
   finally:
     if not return_result:
       callback(len(entries_result) if isinstance(entries_result, pd.DataFrame) else '')
+
+
+def get_user_annotation_counts(callback):
+  threading.Thread(target=lambda: get_user_annotation_counts_thread(callback), daemon=True).start()
+
+def get_user_annotation_counts_thread(callback):
+  try:
+    # Count tag annotations (excluding empty/null)
+    tag_counts = entries_result[entries_result['tag'].notna()].groupby('user_id').size().sort_values(ascending=False)
+
+    # Format results as string
+    results = []
+    for user_id, count in tag_counts.items():
+      results.append(f"User {user_id}: {count} annotations")
+      
+    callback('\n'.join(results))
+    
+  except Exception as e:
+    callback(f'ERR: {str(e)}')
 
 
 def find_annotated(search_text, callback):

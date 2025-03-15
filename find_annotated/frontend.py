@@ -99,3 +99,275 @@ def create_annotated_section(root):
   widgets.spacer(parent=frame, height=20)
 
   results = widgets.countTextbox(parent=frame, label='Results')
+
+  widgets.spacer(parent=frame, height=20)
+
+  # Create frame for the user stats button
+  user_stats_wrapper = widgets.column_wrapper(parent=frame)
+  user_stats_button_column = widgets.column(parent=user_stats_wrapper)
+  
+  # Create table frame that will be shown/hidden
+  table_frame = widgets.frame(parent=frame)
+  table_frame.pack_forget()  # Initially hidden
+
+
+  usernames = {
+    "2": "Sven Dorkenwald",
+    "4": "Claire McKellar",
+    "8": "Szi-chieh Yu",
+    "10": "Lucas Encarnacion-Rivera",
+    "12": "Christa Baker",
+    "13": "Jay Gager",
+    "14": "James Hebditch",
+    "16": "Sandeep Kumar",
+    "17": "Austin T Burke",
+    "19": "Edna Normand",
+    "20": "Diego A Pacheco Pinedo",
+    "22": "Dudi Deutsch",
+    "25": "Kisuk Lee",
+    "26": "Sarah Morejohn",
+    "27": "Kyle Patrick Willie",
+    "28": "Celia D",
+    "29": "M Sorek",
+    "36": "Rachel Wilson",
+    "54": "Claire McKellar",
+    "60": "Greg Jefferis",
+    "62": "Philipp Schlegel",
+    "74": "Markus Pleijzier",
+    "82": "Quinn Vanderbeck",
+    "84": "Merlin Moore",
+    "92": "Katharina Eichler",
+    "94": "Gizem Sancer",
+    "95": "Emil Kind",
+    "96": "Doug Bland",
+    "98": "Ibrahim Taştekin",
+    "100": "Dustin Garner",
+    "103": "Ben Silverman",
+    "104": "Ryan Willie",
+    "108": "A. Javier",
+    "116": "Mert Erginkaya",
+    "119": "Zhihao Zheng",
+    "122": "Amy R. Sterling",
+    "125": "Stefanie Hampel",
+    "129": "Gerit Linneweber",
+    "146": "shuo cao",
+    "153": "Amalia Braun",
+    "184": "Steven Calle",
+    "185": "Lucia Kmecova",
+    "196": "Megan Wang",
+    "257": "Xinyue Cui",
+    "259": "Haein Kim",
+    "260": "Jennifer Malin",
+    "277": "Gabriella Rose Sterne PhD",
+    "283": "Laia Serratosa Capdevila",
+    "301": "Yuta Mabuchi",
+    "306": "Joseph Hsu",
+    "307": "Joanna Eckhardt",
+    "308": "Imaan Tamimi",
+    "352": "Amanda González-Segarra",
+    "355": "Alexander Bates",
+    "372": "Yijie Yin",
+    "392": "Krzysztof Kruk",
+    "392": "KrzysztofKruk",
+    "397": "Marlon Blanquart",
+    "427": "Tansy Yang",
+    "468": "Mehmet F Keles",
+    "531": "Jinfang Li",
+    "700": "a5hm0r",
+    "703": "Arthur Zhao",
+    "814": "Mavil",
+    "839": "Carolyn Elya",
+    "856": "Irene Salgarella",
+    "867": "Paul Brooks",
+    "888": "Alvaro Sanz Diez",
+    "957": "Varun Sane",
+    "960": "Wolf Huetteroth",
+    "986": "Matt Collie",
+    "1000": "Salil Bidaye",
+    "1007": "Nils Reinhard",
+    "1012": "AzureJay",
+    "1019": "Farzaan Salman",
+    "1022": "Jonas Ch",
+    "1034": "Benjamin Bargeron",
+    "1044": "Serene Dhawan",
+    "1050": "GIOVANNI FRIGHETTO",
+    "1062": "Mareike Selcho",
+    "1063": "Lab Members",
+    "1081": "Arie Matsliah",
+    "1093": "Laia Serratosa",
+    "1097": "laia pons",
+    "1152": "Damian Demarest",
+    "1156": "Philip Shiu",
+    "1185": "Marion Silies",
+    "1205": "Zepeng Yao",
+    "1211": "Arti Yadav",
+    "1230": "Ben Gorko",
+    "1232": "Minsik Yun",
+    "1238": "salil bidaye",
+    "1257": "Andrea Sandoval",
+    "1288": "Sheetal Potdar",
+    "1313": "Amanda Abusaif",
+    "1321": "J. Dolorosa",
+    "1322": "Shirleyjoy Serona",
+    "1323": "J. Anthony Ocho",
+    "1324": "Zairene Lenizo",
+    "1326": "Mendell Lopez",
+    "1329": "Nash Hadjerol",
+    "1342": "fred wolf",
+    "1357": "Maggie Robertson",
+    "1417": "Rashmita Rana",
+    "1491": "Lucy Houghton",
+    "1526": "Márcia Santos",
+    "1542": "Kate Maier",
+    "1673": "Caro Md",
+    "1701": "Alexander Del Toro",
+    "1737": "Tjalda Falt",
+    "1764": "Haley Croke",
+    "1774": "Su-Yee Lee",
+    "1776": "Chris Dallmann",
+    "1781": "Neha Sapakal",
+    "1926": "Shaina Mae Monungolh",
+    "1927": "Ariel Dagohoy",
+    "1928": "remer tancontian",
+    "1929": "regine salem",
+    "1930": "Darrel Jay Akiatan",
+    "1931": "Rey Adrian Candilada",
+    "1932": "Kendrick Joules Vinson",
+    "1933": "Joshua Bañez",
+    "1934": "Miguel Albero",
+    "1946": "Anthony Moreno-Sanchez",
+    "2080": "Christopher Dunne",
+    "2102": "Maria Ioannidou",
+    "2115": "Dharini Sapkal",
+    "2121": "Nino Mancini",
+    "2261": "Zongwei Chen",
+    "2338": "Feng Li",
+    "2356": "Kaiyu Wang",
+    "2357": "Osama AHmed",
+    "2374": "Zeba Vohra",
+    "2390": "Chitra Nair",
+    "2395": "Sebastian Mauricio Molina Obando",
+    "2401": "Marina Gkantia",
+    "2455": "annkri",
+    "2462": "Dhwani Patel",
+    "2463": "Arzoo Diwan",
+    "2474": "Yixiong Liu",
+    "2482": "Eva Munnelly",
+    "2565": "Itisha Joshi",
+    "2626": "SL_CS",
+    "2630": "st0ck53y",
+    "2654": "Burak Gur",
+    "2673": "Junjie Yi",
+    "2689": "Dhara Kakadiya",
+    "2753": "johnclyde saguimpa",
+    "2754": "Cathy Pilapil",
+    "2757": "Chereb Martinez",
+    "2758": "Jacquilyn Laude",
+    "2759": "John David Asis",
+    "2760": "Alvin Josh Mandahay",
+    "2761": "Daril Bautista",
+    "2762": "Nelsie Panes",
+    "2763": "Janice Salocot",
+    "2765": "Philip",
+    "2766": "marchan manaytay",
+    "2767": "Allien Mae Gogo",
+    "2768": "Clyde",
+    "2769": "Mark Lloyd Pielago",
+    "2770": "Jansen Seguido",
+    "2815": "Nseraf",
+    "2830": "Hewhoamareismyself",
+    "2842": "Yashvi Patel",
+    "2843": "TR77",
+    "2917": "István Taisz",
+    "2926": "Gianna Vitelli",
+    "2927": "hailiang li",
+    "2935": "Lena Lörsch",
+    "3083": "Gao Yiqin",
+    "3153": "Meet Zandawala",
+    "3409": "Annika Bast",
+    "3431": "juan felipe vargas fique",
+    "3504": "Jenna Joroff",
+    "3666": "Timothy Currier",
+    "3732": "Stéphane noselli",
+    "3887": "Dorfam Rastgarmoghaddam",
+    "3993": "Azusa Kamikouchi",
+    "4280": "Emily Kophs",
+    "4287": "Kangrui Leng"
+  }
+
+  def show_user_stats():
+    show_loading_indicator(root)
+    
+    def callback(stats_text):
+      
+      hide_loading_indicator()
+      # Clear previous content
+      for widget in table_frame.winfo_children():
+        widget.destroy()
+      
+      if stats_text.startswith('ERR:'):
+        results.insert('1.0', stats_text.replace('ERR:', ''))
+        results.insert('1.0', '')
+        return
+        
+      # Create headers
+      header_frame = ctk.CTkFrame(table_frame)
+      header_frame.pack(fill='x', padx=5, pady=(5,0))
+      
+      ctk.CTkLabel(
+        header_frame, 
+        text="User",
+        font=(FONT_FAMILY, 11, "bold"),
+        width=150
+      ).pack(side='left', padx=5)
+      
+      ctk.CTkLabel(
+        header_frame,
+        text="Annotations",
+        font=(FONT_FAMILY, 11, "bold"),
+        width=100
+      ).pack(side='left', padx=5)
+      
+      # Create scrollable frame for results
+      scroll_frame = ctk.CTkScrollableFrame(table_frame, height=200)
+      scroll_frame.pack(fill='x', padx=5, pady=5)
+      
+      # Parse and display results
+      for i, line in enumerate(stats_text.split('\n'), 1):
+        if line:
+          user_id = line.split(':')[0].replace('User ', '').strip()
+          count = line.split(':')[1].strip().replace(' annotations', '')
+          
+          row = ctk.CTkFrame(scroll_frame)
+          row.pack(fill='x', pady=2)
+          
+          # Add position number
+          ctk.CTkLabel(
+            row,
+            text=f"{i}.",
+            width=30
+          ).pack(side='left', padx=5)
+          
+          # Display username if available, otherwise user ID
+          display_name = usernames.get(user_id, user_id)
+          
+          ctk.CTkLabel(
+            row,
+            text=display_name,
+            width=150
+          ).pack(side='left', padx=5)
+          
+          ctk.CTkLabel(
+            row,
+            text=count,
+            width=100
+          ).pack(side='left', padx=5)
+      table_frame.pack(fill='x', padx=10, pady=5)
+
+    get_user_annotation_counts(callback)
+
+  widgets.button(
+    parent=user_stats_button_column,
+    label='Show User Statistics',
+    action=show_user_stats
+  )
