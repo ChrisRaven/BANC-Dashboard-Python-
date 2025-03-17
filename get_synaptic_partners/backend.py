@@ -215,7 +215,7 @@ def get_most_common(source_group, num_of_most_common_partners=50):
     to_be_counted = source[direction].values.flatten().tolist()
 
   counts = Counter(to_be_counted)
-  most_common_ids = [element for element, count in counts.items() if count == num_of_most_common_partners]
+  most_common_ids = [element for element, count in counts.items() if count >= num_of_most_common_partners]
 
   return most_common_ids
 

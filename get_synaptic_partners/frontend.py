@@ -31,7 +31,7 @@ def create_synaptic_partners_section(root):
       if status != Status.IN_PROGRESS:
         hide_loading_indicator()
 
-    get_synaptic_partners(source_ids, callback,  direction=direction)
+    get_synaptic_partners(source_ids, callback, direction=direction)
 
   get_partners_group_wrapper = widgets.column_wrapper(parent=left_column)
   target_selection_wrapper = widgets.column(parent=get_partners_group_wrapper)
