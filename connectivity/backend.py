@@ -27,11 +27,26 @@ _merged_partners_data = None
 
 # Add this at the top with other global variables
 _current_nblast_data = None
+_current_partner_data = None
 
 def get_clusters(input_ids, callback, eps=0.5):
-  global _merged_partners_data
-  _merged_partners_data = None # Reset data on new get_clusters call
-  threading.Thread(target=lambda: get_clusters_thread(input_ids, callback, eps), daemon=True).start()
+  global _merged_partners_data, _current_partner_data
+  
+  def clustering_callback(result):
+    # Force complete reclustering when button is clicked
+    if input_ids is not None:
+      _current_partner_data = None
+    callback(result)
+
+  if input_ids is None and _current_partner_data is not None:
+    # Reclustering with existing data (slider movement)
+    _perform_clustering(_current_partner_data['merged_partners'], callback, eps)
+  else:
+    # New clustering request or no cached data
+    _merged_partners_data = None
+    _current_partner_data = None
+    threading.Thread(target=lambda: get_clusters_thread(input_ids, clustering_callback, eps), daemon=True).start()
+
 
 def recluster(eps, callback):
   """Recluster using stored NBLAST data."""
@@ -42,85 +57,94 @@ def recluster(eps, callback):
     callback("MSG:No data available for reclustering. Please fetch clusters first.")
 
 def group_by_types_of_partners(synapses, tags, root_ids, eps, callback):
-  global _merged_partners_data
+  global _merged_partners_data, _current_partner_data
   if isinstance(synapses, str): return None
   if synapses['status'] != Status.FINISHED: return None
   if synapses['content']['upstream'].empty and synapses['content']['downstream'].empty: return None
-  data = synapses['content']
+  
+  try:
+    data = synapses['content']
 
-  def switch_ids_to_tags(row, field, tags, root_ids):
-    try:
-      idx = np.where(root_ids == row[field])[0]
-      if idx.size > 0:
-        return tags[idx[0]]
-    except:
-      pass
-    return 'Other'
+    def switch_ids_to_tags(row, field, tags, root_ids):
+      try:
+        idx = np.where(root_ids == row[field])[0]
+        if idx.size > 0:
+          return tags[idx[0]]
+      except:
+        pass
+      return 'Other'
 
-  def create_groups(data, key, field1, field2):
-    data[key].drop(
-      columns=[
-        'id',
-        'created',
-        'superceded_id',
-        'valid',
-        'pre_pt_supervoxel_id',
-        'post_pt_supervoxel_id',
-        'pre_pt_position',
-        'post_pt_position',
-        'ctr_pt_position'
-      ],
-      inplace=True
-    )
-    data[key][field1] = data[key][field1].astype(np.int64)
-    data[key][field2] = data[key][field2].astype(np.int64)
-    data[key][field1] = data[key].apply(switch_ids_to_tags, axis=1, args=(field1, tags, root_ids))
+    def create_groups(data, key, field1, field2):
+      data[key].drop(
+        columns=[
+          'id',
+          'created',
+          'superceded_id',
+          'valid',
+          'pre_pt_supervoxel_id',
+          'post_pt_supervoxel_id',
+          'pre_pt_position',
+          'post_pt_position',
+          'ctr_pt_position'
+        ],
+        inplace=True
+      )
+      data[key][field1] = data[key][field1].astype(np.int64)
+      data[key][field2] = data[key][field2].astype(np.int64)
+      data[key][field1] = data[key].apply(switch_ids_to_tags, axis=1, args=(field1, tags, root_ids))
 
-    synapses_grouped = (
-      data[key]
-      .groupby([field1, field2], as_index=False)
-      .agg({'size': 'sum'})
-    )
+      synapses_grouped = (
+        data[key]
+        .groupby([field1, field2], as_index=False)
+        .agg({'size': 'sum'})
+      )
 
-    result = []
-    for pt_root_id, group in synapses_grouped.groupby(field2):
-      row = {
-        'id': pt_root_id,
-        'partners': group[[field1, 'size']].values.tolist()
-      }
-      result.append(row)
+      result = []
+      for pt_root_id, group in synapses_grouped.groupby(field2):
+        row = {
+          'id': pt_root_id,
+          'partners': group[[field1, 'size']].values.tolist()
+        }
+        result.append(row)
 
-    return result
+      return result
 
-  synapses_grouped = {
-    'upstream': create_groups(data, 'upstream', 'pre_pt_root_id', 'post_pt_root_id'),
-    'downstream': create_groups(data, 'downstream', 'post_pt_root_id', 'pre_pt_root_id')
-  }
+    synapses_grouped = {
+      'upstream': create_groups(data, 'upstream', 'pre_pt_root_id', 'post_pt_root_id'),
+      'downstream': create_groups(data, 'downstream', 'post_pt_root_id', 'pre_pt_root_id')
+    }
 
-  def create_partner_feature(partners, side):
-    partner_dict = {}
-    for partner in partners:
-      tag, count = partner
-      new_tag = f"{side}_{tag}"
-      partner_dict[new_tag] = count
-    return partner_dict
+    def create_partner_feature(partners, side):
+      partner_dict = {}
+      for partner in partners:
+        tag, count = partner
+        new_tag = f"{side}_{tag}"
+        partner_dict[new_tag] = count
+      return partner_dict
 
-  all_tags = set()
-  for upstream, downstream in zip(synapses_grouped['upstream'], synapses_grouped['downstream']):
-    all_tags.update([tag for tag, _ in upstream['partners']])
-    all_tags.update([tag for tag, _ in downstream['partners']])
+    all_tags = set()
+    for upstream, downstream in zip(synapses_grouped['upstream'], synapses_grouped['downstream']):
+      all_tags.update([tag for tag, _ in upstream['partners']])
+      all_tags.update([tag for tag, _ in downstream['partners']])
 
-  all_tags = sorted(all_tags)
+    all_tags = sorted(all_tags)
 
-  merged_partners = {}
-  for upstream, downstream in zip(synapses_grouped['upstream'], synapses_grouped['downstream']):
-    id = upstream['id']
-    upstream_partners = create_partner_feature(upstream['partners'], 'upstream')
-    downstream_partners = create_partner_feature(downstream['partners'], 'downstream')
-    merged_partners[id] = {**upstream_partners, **downstream_partners}
+    merged_partners = {}
+    for upstream, downstream in zip(synapses_grouped['upstream'], synapses_grouped['downstream']):
+      id = upstream['id']
+      upstream_partners = create_partner_feature(upstream['partners'], 'upstream')
+      downstream_partners = create_partner_feature(downstream['partners'], 'downstream')
+      merged_partners[id] = {**upstream_partners, **downstream_partners}
 
-  _merged_partners_data = merged_partners
-  _perform_clustering(merged_partners, callback, eps)
+    _merged_partners_data = merged_partners
+    _current_partner_data = None  # Reset cache before new clustering
+    _perform_clustering(merged_partners, callback, eps)
+  except Exception as e:
+    print(f"Error in group_by_types_of_partners: {str(e)}")
+    callback({
+      'status': Status.ERROR,
+      'content': f'Error processing partners: {str(e)}'
+    })
 
 def get_clusters_thread(input_ids, callback, eps):
   tags = []
@@ -185,98 +209,115 @@ def get_clusters_thread(input_ids, callback, eps):
   get_entries('cell_info', process_entries, return_result=True)
 
 def _perform_clustering(merged_partners, callback, eps):
-  # Convert dictionary data to feature matrix
-  neuron_ids = list(merged_partners.keys())
-  
-  # Collect all unique neuron types (excluding 'Other')
-  all_types = set()
-  for connections in merged_partners.values():
-    for key in connections.keys():
-      if 'Other' not in key:
-        all_types.add(key)
-  all_types = sorted(list(all_types))
-  
-  # Create feature matrix
-  X = np.zeros((len(neuron_ids), len(all_types)))
-  for i, neuron_id in enumerate(neuron_ids):
-    for j, type_ in enumerate(all_types):
-      X[i, j] = merged_partners[neuron_id].get(type_, 0)
-  
-  # Log transform to handle varying scales
-  X = np.log1p(X)
-  
-  # Normalize features
-  scaler = StandardScaler()
-  X = scaler.fit_transform(X)
-  
-  # Calculate linkage matrix
-  Z = linkage(X, method='ward')
-  
-  # Scale eps to match dendrogram scale
-  scaled_eps = eps * np.max(Z[:, 2]) / 100  # Convert slider value (0-100) to actual distance
-  
-  # Get clusters from hierarchical clustering
-  labels = fcluster(Z, scaled_eps, criterion='distance')
-  
-  # Convert to 0-based indexing
-  labels = labels - 1
-  
-  unique_labels = sorted(set(labels))
-  clusters = []
-  
-  # Process each cluster
-  for label in unique_labels:
-    mask = labels == label
-    cluster_neurons = [neuron_ids[i] for i, is_member in enumerate(mask) if is_member]
+  global _current_partner_data
+  try:
+    # Convert dictionary data to feature matrix
+    neuron_ids = list(merged_partners.keys())
     
-    # Calculate cluster characteristics
-    cluster_features = X[mask]
-    mean_pattern = np.mean(cluster_features, axis=0)
+    # Collect all unique neuron types (excluding 'Other')
+    all_types = set()
+    for connections in merged_partners.values():
+      for key in connections.keys():
+        if 'Other' not in key:
+          all_types.add(key)
+    all_types = sorted(list(all_types))
     
-    # Find significant patterns
-    patterns = []
-    for i, type_ in enumerate(all_types):
-      if abs(mean_pattern[i]) > 0.5:  # Lower threshold for significance
-        is_upstream = type_.startswith('upstream_')
-        partner_type = type_.replace('upstream_', '').replace('downstream_', '')
-        
-        patterns.append({
-          'type': 'upstream' if is_upstream else 'downstream',
-          'partner': partner_type,
-          'strength': abs(mean_pattern[i])
-        })
+    # Create feature matrix
+    X = np.zeros((len(neuron_ids), len(all_types)))
+    for i, neuron_id in enumerate(neuron_ids):
+      for j, type_ in enumerate(all_types):
+        X[i, j] = merged_partners[neuron_id].get(type_, 0)
     
-    # Sort patterns by strength
-    patterns.sort(key=lambda x: x['strength'], reverse=True)
+    # Log transform to handle varying scales
+    X = np.log1p(X)
     
-    clusters.append({
-      'type': 'cluster',
-      'neurons': cluster_neurons,
-      'size': len(cluster_neurons),
-      'patterns': patterns[:5]  # Top 5 patterns
+    # Normalize features
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+
+    # Store the data for reclustering
+    _current_partner_data = {
+      'merged_partners': merged_partners,
+      'X': X,
+      'neuron_ids': neuron_ids,
+      'all_types': all_types
+    }
+
+    # Calculate linkage matrix
+    Z = linkage(X, method='ward')
+    
+    # Scale eps to match dendrogram scale
+    scaled_eps = eps * np.max(Z[:, 2]) / 100  # Convert slider value (0-100) to actual distance
+    
+    # Get clusters from hierarchical clustering
+    labels = fcluster(Z, scaled_eps, criterion='distance')
+    
+    
+    # Convert to 0-based indexing
+    labels = labels - 1
+    
+    unique_labels = sorted(set(labels))
+    clusters = []
+    
+    # Process each cluster
+    for label in unique_labels:
+      mask = labels == label
+      cluster_neurons = [neuron_ids[i] for i, is_member in enumerate(mask) if is_member]
+      
+      # Calculate cluster characteristics
+      cluster_features = X[mask]
+      mean_pattern = np.mean(cluster_features, axis=0)
+      
+      # Find significant patterns
+      patterns = []
+      for i, type_ in enumerate(all_types):
+        if abs(mean_pattern[i]) > 0.5:  # Lower threshold for significance
+          is_upstream = type_.startswith('upstream_')
+          partner_type = type_.replace('upstream_', '').replace('downstream_', '')
+          
+          patterns.append({
+            'type': 'upstream' if is_upstream else 'downstream',
+            'partner': partner_type,
+            'strength': abs(mean_pattern[i])
+          })
+      
+      # Sort patterns by strength
+      patterns.sort(key=lambda x: x['strength'], reverse=True)
+      
+      clusters.append({
+        'type': 'cluster',
+        'neurons': cluster_neurons,
+        'size': len(cluster_neurons),
+        'patterns': patterns[:5]  # Top 5 patterns
+      })
+    
+    # Sort clusters by size
+    clusters.sort(key=lambda x: -x['size'])
+    
+    # Calculate silhouette score only if we have a valid number of clusters
+    silhouette = 0
+    n_samples = len(neuron_ids)
+    n_clusters = len(unique_labels)
+    if 2 <= n_clusters <= n_samples - 1:
+      try:
+        silhouette = silhouette_score(X, labels)
+      except:
+        silhouette = 0
+    
+    callback({
+      'n_clusters': len(clusters),
+      'clusters': clusters,
+      'silhouette': silhouette,
+      'eps_used': eps,
+      'distances': X,
+      'linkage': Z
     })
-  
-  # Sort clusters by size
-  clusters.sort(key=lambda x: -x['size'])
-  
-  # Calculate silhouette score only if we have a valid number of clusters
-  silhouette = 0
-  n_samples = len(neuron_ids)
-  n_clusters = len(unique_labels)
-  if 2 <= n_clusters <= n_samples - 1:
-    try:
-      silhouette = silhouette_score(X, labels)
-    except:
-      silhouette = 0
-  
-  callback({
-    'n_clusters': len(clusters),
-    'clusters': clusters,
-    'silhouette': silhouette,
-    'eps_used': eps,
-    'distances': X,  # For dendrogram
-    'linkage': Z    # Add linkage matrix for better dendrogram updates
-  })
+  except Exception as e:
+    print(f"Error in _perform_clustering: {str(e)}")
+    callback({
+      'status': Status.ERROR,
+      'content': f'Error during clustering: {str(e)}'
+    })
 
 def download_skeleton(nid):
   path = os.path.join('skeleton_cache', f'{nid}.h5')

@@ -3,12 +3,16 @@ __all__ = ['find_differences']
 import threading
 
 
-def find_differences(A, B, callback):
-  threading.Thread(target=lambda: find_differences_request(A, B, callback), daemon=True).start()
+def find_differences(A, B, large_neurons, subtract_large_neurons, callback):
+  threading.Thread(target=lambda: find_differences_request(A, B, large_neurons, subtract_large_neurons, callback), daemon=True).start()
 
-def find_differences_request(A, B, callback):
+def find_differences_request(A, B, large_neurons, subtract_large_neurons, callback):
   a_set = set(A)
   b_set = set(B)
+  large_neurons_set = set(large_neurons)
+
+  if subtract_large_neurons:
+    b_set = b_set | large_neurons_set
   
   a_only = list(a_set - b_set)
   a_plus_b = list(a_set & b_set)

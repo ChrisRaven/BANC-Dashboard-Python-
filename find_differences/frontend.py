@@ -10,6 +10,8 @@ def create_differences_section(root):
 
   textbox_a = widgets.countTextbox(parent=frame, label='A')
   textbox_b = widgets.countTextbox(parent=frame, label='B')
+  textbox_large_neurons = widgets.countTextbox(parent=frame, label='Large neurons')
+  checkbox_subtract_large_neurons = widgets.checkbox(parent=frame, label='Subtract large neurons', checked=True)
 
   def find_differences_callback(results):
     def fill(field, target):
@@ -23,7 +25,9 @@ def create_differences_section(root):
   def find_differences_handler():
     A = clean_input(textbox_a.get('1.0', 'end'))
     B = clean_input(textbox_b.get('1.0', 'end'))
-    find_differences(A, B, find_differences_callback)
+    large_neurons = clean_input(textbox_large_neurons.get('1.0', 'end'))
+    subtract_large_neurons = checkbox_subtract_large_neurons.is_checked()
+    find_differences(A, B, large_neurons, subtract_large_neurons, find_differences_callback)
 
   widgets.button(
     parent=frame,

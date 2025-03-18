@@ -221,6 +221,18 @@ def radiogroup(parent, options, callback=None):
 
   return frame
 
+def checkbox(parent, label, checked=False):
+  var = ctk.BooleanVar(value=checked)
+  checkbox = ctk.CTkCheckBox(parent, text=label, variable=var)
+  checkbox.pack(pady=5, anchor='nw')
+  
+  def is_checked():
+    return var.get()
+  
+  checkbox.is_checked = is_checked
+
+  return checkbox
+
 
 widgets = SimpleNamespace(
   countTextbox = countTextbox,
@@ -233,5 +245,6 @@ widgets = SimpleNamespace(
   column_wrapper = column_wrapper,
   column=column,
   spacer=spacer,
-  radiogroup=radiogroup
+  radiogroup=radiogroup,
+  checkbox=checkbox
 )
