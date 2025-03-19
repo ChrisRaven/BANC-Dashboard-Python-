@@ -10,7 +10,32 @@ def create_differences_section(root):
 
   textbox_a = widgets.countTextbox(parent=frame, label='A')
   textbox_b = widgets.countTextbox(parent=frame, label='B')
+
+  ###
   textbox_large_neurons = widgets.countTextbox(parent=frame, label='Large neurons')
+
+  try:
+    with open('large_neurons.txt', 'r') as file:
+      initial_large_neurons = file.read()
+  except FileNotFoundError:
+    initial_large_neurons = ''
+  
+  widgets.insert(textbox_large_neurons, initial_large_neurons)
+  
+  def save_large_neurons(event):
+    with open('large_neurons.txt', 'w') as file:
+      file.write(textbox_large_neurons.get('1.0', 'end').strip())
+  
+  def clean_and_replace(event):
+    original_text = event.widget.get('1.0', 'end')
+    cleaned_text = clean_input(original_text)
+    event.widget.delete('1.0', 'end')
+    event.widget.insert('1.0', cleaned_text)
+
+  textbox_large_neurons.bind('<FocusOut>', save_large_neurons)
+  textbox_large_neurons.bind('<<Paste>>', lambda event: event.widget.after(1, clean_and_replace, event))
+  ###
+
   checkbox_subtract_large_neurons = widgets.checkbox(parent=frame, label='Subtract large neurons', checked=True)
 
   def find_differences_callback(results):

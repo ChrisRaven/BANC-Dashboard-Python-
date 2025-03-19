@@ -243,8 +243,9 @@ widgets = SimpleNamespace(
   labeledEntry = labeledEntry,
   frame = frame,
   column_wrapper = column_wrapper,
-  column=column,
-  spacer=spacer,
-  radiogroup=radiogroup,
-  checkbox=checkbox
+  column = column,
+  spacer = spacer,
+  radiogroup = radiogroup,
+  checkbox = checkbox,
+  insert = insert
 )
