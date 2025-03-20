@@ -1,4 +1,4 @@
-__all__ = ['get_synaptic_partners', 'get_partners_of_partners', 'get_most_common', 'filter_dust']
+__all__ = ['get_synaptic_partners', 'get_partners_of_partners', 'get_most_common', 'filter_dust', 'filter_by_no_of_fragments']
 
 ''' SP == Synaptic Partners '''
 
@@ -10,6 +10,9 @@ from api_token import API_TOKEN
 from constants import *
 from functools import partial
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from requests import get, exceptions
+import random
 
 
 data = {
@@ -281,3 +284,79 @@ def filter_dust_request(source_group, min_no_of_synapses, callback):
     
   except Exception as e:
     callback(f'MSG:ERROR:Error: {str(e)}')
+
+
+def filter_by_no_of_fragments(source_group, min_no_of_fragments, source_ids, callback):
+  threading.Thread(target=lambda: filter_by_no_of_fragments_request(source_group, min_no_of_fragments, source_ids, callback), daemon=True).start()
+
+def filter_by_no_of_fragments_request(source_group, min_no_of_fragments, source_ids, callback, max_workers=100):
+  if source_group != 'input IDs':
+    key = 'partners' if source_group == 'partners' else 'partners_of_partners'
+    source = data[key]
+    direction = data['direction']
+
+    if direction == 'both':
+      source_ids = pd.concat([source['upstream'], source['downstream']], ignore_index=True).values.flatten().tolist()
+    else:
+      source_ids = source[direction].values.flatten().tolist()
+
+  base_url = 'https://cave.fanc-fly.com/meshing/api/v1/table/wclee_fly_cns_001/manifest/'
+  headers = {
+    'Content-Type': 'application/json',
+    'Accept-Encoding': 'zstd',
+    'Authorization': f'Bearer {API_TOKEN}',
+    'Cookie': f'middle_auth_token={API_TOKEN}'
+  }
+
+  def check_fragments(seg_id, max_retries=5):
+    url = f"{base_url}{seg_id}:0"
+    retries = 0
+    while retries < max_retries:
+      try:
+        response = get(url, headers=headers, timeout=10)  # Timeout added
+        if response.status_code == 200:
+          data = response.json()
+          if len(data['fragments']) >= min_no_of_fragments:
+            return seg_id
+          return None
+        elif response.status_code in {429, 500, 502, 503, 504}:  # Retryable errors
+          wait_time = 2 ** retries + random.uniform(0, 1)
+          time.sleep(wait_time)
+          retries += 1
+        else:
+          break  # Non-retryable error
+      except exceptions.RequestException as e:
+        time.sleep(2 ** retries)  # Wait before retrying
+        retries += 1
+
+    return None  # Failed after retries
+
+  processed = 0
+  saved = 0
+  rejected = 0
+  total = len(source_ids)
+  results = []
+  requests_sent = 0
+
+  with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    future_to_seg = {executor.submit(check_fragments, seg_id): seg_id for seg_id in source_ids}
+
+    for future in as_completed(future_to_seg):  # Process completed requests first
+      result = future.result()
+      if result is not None:
+        saved += 1
+        results.append(result)
+      else:
+        rejected += 1
+
+      processed += 1
+
+      if processed % 1000 == 0:  # Cool-down after every 1000 processed requests
+        wait_time = random.uniform(1, 2)
+        callback(f'MSG:COOLDOWN:Pausing for {wait_time:.2f} seconds...')
+        time.sleep(wait_time)
+
+      if processed % 100 == 0:
+        callback(f'MSG:IN_PROGRESS:Processed: {processed}/{total}\nSaved: {saved}\nRejected: {rejected}')
+
+  callback(results)
