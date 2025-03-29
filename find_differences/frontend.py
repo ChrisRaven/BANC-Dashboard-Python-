@@ -29,8 +29,7 @@ def create_differences_section(root):
   def clean_and_replace(event):
     original_text = event.widget.get('1.0', 'end')
     cleaned_text = clean_input(original_text)
-    newline = '\r\n' if platform.system() == 'Windows' else '\n'
-    formatted_cleaned_text = newline.join(map(str, cleaned_text))
+    formatted_cleaned_text = '\n'.join(map(str, cleaned_text))
     event.widget.delete('1.0', 'end')
     event.widget.insert('1.0', formatted_cleaned_text)
 
