@@ -85,14 +85,14 @@ def create_synaptic_partners_section(root):
 
   def filter_dust_handler():
     show_loading_indicator(root)
-    min_no_of_synapses = no_of_synapses.get().strip()
+    min_size = min_size_input.get().strip()
     source_group = common_source_selection.get_selected()
     #filter_dust(source_group, int(min_no_of_synapses), filter_dust_callback)
 
     # source_ids used only, if the source_group is selected to 'input IDs'
     source_text = input_ids.get('1.0', 'end').strip()
     source_ids = clean_input(source_text)
-    filter_by_no_of_fragments(source_group, int(min_no_of_synapses), source_ids, filter_dust_callback)
+    filter_by_no_of_fragments(source_group, int(min_size), source_ids, filter_dust_callback)
 
   def filter_dust_callback(result):
     if isinstance(result, str) and result.startswith('MSG:'):
@@ -125,12 +125,12 @@ def create_synaptic_partners_section(root):
   widgets.spacer(parent=right_column, height=10)
   
   border3 = widgets.column_wrapper(parent=right_column, border=True)
-  widgets.header(parent=border3, text='Filter by min number of fragments')
+  widgets.header(parent=border3, text='Filter by min size')
 
   filter_wrapper = widgets.column_wrapper(parent=border3)
   filter_button_column = widgets.column(parent=filter_wrapper, anchor='sw')
   widgets.button(parent=filter_button_column, label='Filter', action=filter_dust_handler)
-  no_of_synapses_wrapper = widgets.column(parent=filter_wrapper)
-  no_of_synapses = widgets.labeledEntry(parent=no_of_synapses_wrapper, label='No of fragments', default_value='2')
+  min_size_wrapper = widgets.column(parent=filter_wrapper)
+  min_size_input = widgets.labeledEntry(parent=min_size_wrapper, label='Min size', default_value='10000')
   filtered_partners = widgets.countTextbox(parent=border3, label='Filtered')
   

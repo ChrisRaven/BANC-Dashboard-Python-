@@ -286,10 +286,10 @@ def filter_dust_request(source_group, min_no_of_synapses, callback):
     callback(f'MSG:ERROR:Error: {str(e)}')
 
 
-def filter_by_no_of_fragments(source_group, min_no_of_fragments, source_ids, callback):
-  threading.Thread(target=lambda: filter_by_no_of_fragments_request(source_group, min_no_of_fragments, source_ids, callback), daemon=True).start()
+def filter_by_no_of_fragments(source_group, min_size, source_ids, callback):
+  threading.Thread(target=lambda: filter_by_no_of_fragments_request(source_group, min_size, source_ids, callback), daemon=True).start()
 
-def filter_by_no_of_fragments_request(source_group, min_no_of_fragments, source_ids, callback, max_workers=100):
+def filter_by_no_of_fragments_request(source_group, min_size, source_ids, callback, max_workers=100):
   if source_group != 'input IDs':
     key = 'partners' if source_group == 'partners' else 'partners_of_partners'
     source = data[key]
@@ -308,28 +308,34 @@ def filter_by_no_of_fragments_request(source_group, min_no_of_fragments, source_
     'Cookie': f'middle_auth_token={API_TOKEN}'
   }
 
-  def check_fragments(seg_id, max_retries=5):
-    url = f"{base_url}{seg_id}:0"
+  def check_fragments(seg_id, min_size=10000, max_retries=5):
+    url = f"{base_url}{seg_id}:0?verify=1&prepend_seg_ids=1"
     retries = 0
     while retries < max_retries:
       try:
-        response = get(url, headers=headers, timeout=10)  # Timeout added
+        response = get(url, headers=headers, timeout=10)
         if response.status_code == 200:
-          data = response.json()
-          if len(data['fragments']) >= min_no_of_fragments:
+          total_size = 0
+          for frag in response.json().get("fragments", []):
+            if "/" not in frag:  # bounding box fragment
+              return seg_id
+            # offset fragment, extract size
+            total_size += int(frag.rsplit(":", 1)[-1])
+          if total_size >= min_size:
             return seg_id
           return None
-        elif response.status_code in {429, 500, 502, 503, 504}:  # Retryable errors
-          wait_time = 2 ** retries + random.uniform(0, 1)
-          time.sleep(wait_time)
+
+        elif response.status_code in {429, 500, 502, 503, 504}:
+          time.sleep(2 ** retries + random.random())
           retries += 1
         else:
-          break  # Non-retryable error
-      except exceptions.RequestException as e:
-        time.sleep(2 ** retries)  # Wait before retrying
+          break
+
+      except exceptions.RequestException:
+        time.sleep(2 ** retries)
         retries += 1
 
-    return None  # Failed after retries
+    return None
 
   processed = 0
   saved = 0
@@ -339,7 +345,7 @@ def filter_by_no_of_fragments_request(source_group, min_no_of_fragments, source_
   requests_sent = 0
 
   with ThreadPoolExecutor(max_workers=max_workers) as executor:
-    future_to_seg = {executor.submit(check_fragments, seg_id): seg_id for seg_id in source_ids}
+    future_to_seg = {executor.submit(check_fragments, seg_id, min_size): seg_id for seg_id in source_ids}
 
     for future in as_completed(future_to_seg):  # Process completed requests first
       result = future.result()
