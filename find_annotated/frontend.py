@@ -256,6 +256,7 @@ def create_annotated_section(root):
     "2565": "Itisha Joshi",
     "2626": "SL_CS",
     "2630": "st0ck53y",
+    "2660": "Jasper Phelps",
     "2654": "Burak Gur",
     "2673": "Junjie Yi",
     "2689": "Dhara Kakadiya",
