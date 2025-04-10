@@ -286,10 +286,10 @@ def filter_dust_request(source_group, min_no_of_synapses, callback):
     callback(f'MSG:ERROR:Error: {str(e)}')
 
 
-def filter_by_no_of_fragments(source_group, min_size, source_ids, callback):
-  threading.Thread(target=lambda: filter_by_no_of_fragments_request(source_group, min_size, source_ids, callback), daemon=True).start()
+def filter_by_no_of_fragments(source_group, min_size, max_fragments, source_ids, callback):
+  threading.Thread(target=lambda: filter_by_no_of_fragments_request(source_group, min_size, max_fragments, source_ids, callback), daemon=True).start()
 
-def filter_by_no_of_fragments_request(source_group, min_size, source_ids, callback, max_workers=100):
+def filter_by_no_of_fragments_request(source_group, min_size, max_fragments, source_ids, callback, max_workers=100):
   if source_group != 'input IDs':
     key = 'partners' if source_group == 'partners' else 'partners_of_partners'
     source = data[key]
@@ -308,7 +308,7 @@ def filter_by_no_of_fragments_request(source_group, min_size, source_ids, callba
     'Cookie': f'middle_auth_token={API_TOKEN}'
   }
 
-  def check_fragments(seg_id, min_size=10000, max_retries=5):
+  def check_fragments(seg_id, min_size=10000, max_fragments=50, max_retries=5):
     url = f"{base_url}{seg_id}:0?verify=1&prepend_seg_ids=1"
     retries = 0
     while retries < max_retries:
@@ -316,7 +316,10 @@ def filter_by_no_of_fragments_request(source_group, min_size, source_ids, callba
         response = get(url, headers=headers, timeout=10)
         if response.status_code == 200:
           total_size = 0
-          for frag in response.json().get("fragments", []):
+          fragments = response.json().get("fragments", [])
+          if len(fragments) > max_fragments:
+            return None
+          for frag in fragments:
             if "/" not in frag:  # bounding box fragment
               return seg_id
             # offset fragment, extract size
@@ -345,7 +348,7 @@ def filter_by_no_of_fragments_request(source_group, min_size, source_ids, callba
   requests_sent = 0
 
   with ThreadPoolExecutor(max_workers=max_workers) as executor:
-    future_to_seg = {executor.submit(check_fragments, seg_id, min_size): seg_id for seg_id in source_ids}
+    future_to_seg = {executor.submit(check_fragments, seg_id, min_size, max_fragments): seg_id for seg_id in source_ids}
 
     for future in as_completed(future_to_seg):  # Process completed requests first
       result = future.result()

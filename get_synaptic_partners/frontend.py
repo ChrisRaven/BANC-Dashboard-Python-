@@ -92,7 +92,7 @@ def create_synaptic_partners_section(root):
     # source_ids used only, if the source_group is selected to 'input IDs'
     source_text = input_ids.get('1.0', 'end').strip()
     source_ids = clean_input(source_text)
-    filter_by_no_of_fragments(source_group, int(min_size), source_ids, filter_dust_callback)
+    filter_by_no_of_fragments(source_group, int(min_size), 50, source_ids, filter_dust_callback)
 
   def filter_dust_callback(result):
     if isinstance(result, str) and result.startswith('MSG:'):
