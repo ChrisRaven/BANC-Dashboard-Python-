@@ -10,6 +10,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import fcluster
+import matplotlib.pyplot as plt
 
 # Moved variables to the upper level
 current_frame = None
@@ -51,52 +52,50 @@ def _normalize_linkage(Z):
   return Z
 
 def update_dendrogram(distances, eps):
-  global current_ax, threshold_line, canvas, averaged_nblast_scores, Z
+  """ Plots dendrogram, stores leaf order/colors, returns NORMALIZED Z. """
+  global current_ax, threshold_line, canvas, Z # Z still stores original linkage
   
   if current_ax is not None:
     current_ax.clear()
   threshold_line = None
-
-  # Check if the distances array is already a square matrix or a condensed distance matrix
+        
+  # --- Calculate Distance Vector 'aba_vec' ---
   if isinstance(distances, np.ndarray) and len(distances.shape) == 2:
-    if distances.shape[0] != distances.shape[1]:
-      # For rectangular matrices (feature vectors from partner-based clustering)
+    if distances.shape[0] != distances.shape[1]: # Partner features
       from scipy.spatial.distance import pdist
-      aba_vec = pdist(distances, 'euclidean')
-      max_dist = np.max(aba_vec) if len(aba_vec) > 0 else 1
-      averaged_nblast_scores = 1 - (aba_vec / max_dist)
-    else:
-      # For square distance matrix (NBLAST)
-      # Fill diagonal with zeros to avoid warning
+      aba_vec = pdist(distances, 'euclidean') 
+    else: # NBLAST distances
       np.fill_diagonal(distances, 0)
       aba_vec = squareform(distances, checks=False)
-      averaged_nblast_scores = 1 - distances
-  else:
-    # Already a condensed distance matrix
+  else: # Condensed distances
     aba_vec = distances
-    averaged_nblast_scores = 1 - distances
+  aba_vec = np.maximum(aba_vec, 0) # Clip negative values
 
-  # Compute linkage for hierarchical clustering
-  Z = linkage(aba_vec, method="ward", optimal_ordering=True)
+  # --- Linkage ---
+  Z = linkage(aba_vec, method="ward", optimal_ordering=True) 
 
-  color_threshold = eps / 100
+  # --- Normalize and Plot ---
+  normalized_Z = _normalize_linkage(Z.copy()) # Critical: Use a copy
+  color_threshold_normalized = eps / 100 
+
   dendro = dendrogram(
-    _normalize_linkage(Z),
+    normalized_Z, # Plot using normalized Z
     ax=current_ax,
     no_labels=True,
-    color_threshold=color_threshold,
+    color_threshold=color_threshold_normalized, 
     above_threshold_color='gray',
     leaf_rotation=0,
   )
 
-  # Store both the leaf order and color data
+  # --- Store Results Needed by display_clusters ---
   update_dendrogram.leaf_order = dendro['leaves']
-  update_dendrogram.color_list = dendro['color_list']
-  update_dendrogram.leaves_color_list = dendro['leaves_color_list']
+  # Store the color assigned by dendrogram plot to each leaf
+  update_dendrogram.leaves_color_list = dendro['leaves_color_list'] 
+  # We don't strictly need dendro['color_list'] for buttons
 
-  threshold_line = current_ax.axhline(y=color_threshold, color='r', linestyle='--')
+  # --- Plot Threshold Line and Adjust Axes ---
+  threshold_line = current_ax.axhline(y=color_threshold_normalized, color='r', linestyle='--')
   current_ax.set_ylim(bottom=0, top=1.0)
-
   yticks = np.linspace(0, 1, 11)
   current_ax.set_yticks(yticks)
   current_ax.set_yticklabels([f"{y * 100:.0f}" for y in yticks])
@@ -104,8 +103,8 @@ def update_dendrogram(distances, eps):
   current_ax.figure.tight_layout()
   canvas.draw()
 
-  return dendro
-
+  # Return the normalized linkage matrix used for plotting
+  return normalized_Z
 
 def display_clusters(data):
   global current_frame, cluster_count_label, current_ax, Z
@@ -129,83 +128,86 @@ def display_clusters(data):
     current_frame = ctk.CTkFrame(results_container, fg_color="transparent")
     current_frame.pack(fill='x', padx=10, pady=(0, 5))
 
-    # Handle initial clustering vs slider updates
+    normalized_Z_for_clustering = None # Initialize
+
+    # --- Dendrogram Update and Data Fetching ---
     if isinstance(data, dict) and 'distances' in data:
-      # Handle both partner-based and NBLAST clustering
-      if 'clusters' in data:
-        # Partner-based clustering
-        neuron_ids = []
-        for cluster in data['clusters']:
-          neuron_ids.extend(cluster['neurons'])
-      else:
-        # NBLAST clustering
-        neuron_ids = data['neuron_ids']
-        
+      # Initial clustering
+      neuron_ids = data.get('neuron_ids', []) 
+      if not neuron_ids:
+          raise ValueError("Neuron IDs ('neuron_ids') missing from backend.")
+          
       display_clusters.neuron_ids = neuron_ids
       display_clusters.eps_used = data['eps_used']
       display_clusters.distances = data['distances']
-      dendro = update_dendrogram(data['distances'], data['eps_used'])
+      # Update dendrogram plots AND returns normalized Z
+      normalized_Z_for_clustering = update_dendrogram(display_clusters.distances, display_clusters.eps_used)
     else:
+      # Slider update (reclustering)
       if not hasattr(display_clusters, 'distances') or not hasattr(display_clusters, 'neuron_ids'):
-        return
-      display_clusters.eps_used = data
-      dendro = update_dendrogram(display_clusters.distances, data)
+        return 
+      display_clusters.eps_used = data 
+      # Re-plot dendrogram AND get updated normalized Z
+      normalized_Z_for_clustering = update_dendrogram(display_clusters.distances, display_clusters.eps_used)
 
-    if Z is None:
-      raise ValueError("Linkage matrix not created")
+    if Z is None or normalized_Z_for_clustering is None:
+      raise ValueError("Linkage matrix (Z or normalized_Z) not created")
+    # We still need leaf_order for button arrangement
+    if not hasattr(update_dendrogram, 'leaf_order') or not hasattr(update_dendrogram, 'leaves_color_list'):
+       raise ValueError("Dendrogram leaf order or leaves_color_list not available")
 
-    # Get clusters using fcluster
-    # Get clusters using fcluster
-    # Get clusters using fcluster
-    cluster_labels = fcluster(Z, t=display_clusters.eps_used/100, criterion='distance')
+    # --- Cluster Processing using fcluster on NORMALIZED data ---
     
-    # Create mapping from original indices to leaf order
-    leaf_to_orig = {leaf: i for i, leaf in enumerate(update_dendrogram.leaf_order)}
+    # Use the normalized threshold directly with the normalized linkage matrix
+    normalized_threshold_t = display_clusters.eps_used / 100.0
+
+    # *** CRITICAL: Use normalized_Z_for_clustering and normalized_threshold_t ***
+    cluster_labels = fcluster(normalized_Z_for_clustering, t=normalized_threshold_t, criterion='distance')
     
-    # Group neurons by cluster and track their positions
-    clusters = {}
-    cluster_positions = {}  # Store leftmost position for each cluster
-    cluster_sizes = {}
+    unique_labels, counts = np.unique(cluster_labels, return_counts=True)
+    num_clusters = len(unique_labels)
+    label_counts = dict(zip(unique_labels, counts))
+
+    # --- Map cluster labels to Dendrogram plot colors (using leaves_color_list) ---
+    fcluster_to_dendro_color_map = {}
+    for i, leaf_orig_idx in enumerate(update_dendrogram.leaf_order):
+        current_fcluster_label = cluster_labels[leaf_orig_idx]
+        if current_fcluster_label not in fcluster_to_dendro_color_map:
+            dendro_color_str = update_dendrogram.leaves_color_list[i]
+            try:
+                color_rgba = matplotlib.colors.to_rgba(dendro_color_str)
+                if matplotlib.colors.same_color(color_rgba, 'black') or matplotlib.colors.same_color(color_rgba, 'gray') or dendro_color_str in ['k', 'grey', 'gray']:
+                   color_rgba = np.array([0.5, 0.5, 0.5, 1])
+            except ValueError:
+                 color_rgba = np.array([0.5, 0.5, 0.5, 1])
+            fcluster_to_dendro_color_map[current_fcluster_label] = color_rgba
+
+    # --- Process clusters in dendrogram order for Buttons ---
+    processed_clusters = []
+    visited_labels = set()
     
-    # First pass - collect clusters and find their leftmost positions
-    for i, label in enumerate(cluster_labels):
-      if label not in clusters:
-        clusters[label] = []
-        cluster_sizes[label] = 0
-        cluster_positions[label] = len(update_dendrogram.leaf_order)  # Initialize with max position
-      
-      clusters[label].append(display_clusters.neuron_ids[i])
-      cluster_sizes[label] += 1
-      
-      # Update leftmost position
-      leaf_pos = update_dendrogram.leaf_order.index(i)
-      if leaf_pos < cluster_positions[label]:
-        cluster_positions[label] = leaf_pos
+    for leaf_index in update_dendrogram.leaf_order:
+      current_label = cluster_labels[leaf_index]
 
-    # Sort clusters by their leftmost position in the dendrogram
-    ordered_labels = sorted(cluster_positions.keys(), key=lambda x: cluster_positions[x])
+      if current_label not in visited_labels:
+        visited_labels.add(current_label)
+        
+        indices_in_cluster = [i for i, lbl in enumerate(cluster_labels) if lbl == current_label]
+        neurons_in_cluster = [display_clusters.neuron_ids[i] for i in indices_in_cluster]
+        
+        cluster_color_rgba = fcluster_to_dendro_color_map.get(current_label, np.array([0.5, 0.5, 0.5, 1]))
+        if label_counts[current_label] == 1:
+             cluster_color_rgba = np.array([0.5, 0.5, 0.5, 1])
 
-    # Get colors from dendrogram's color_list
-    unique_colors = []
-    for color in update_dendrogram.color_list:
-      if color != 'gray' and color not in unique_colors:
-        unique_colors.append(color)
+        processed_clusters.append({
+            'label': current_label,
+            'neurons': neurons_in_cluster,
+            'color': cluster_color_rgba 
+        })
 
-    # Map colors to clusters
-    color_map = {}
-    color_idx = 0
-    
-    for label in ordered_labels:
-      size = cluster_sizes[label]
-      if size > 1 and color_idx < len(unique_colors):
-        color_map[label] = matplotlib.colors.to_rgba(unique_colors[color_idx])
-        color_idx += 1
-      else:
-        color_map[label] = np.array([0.5, 0.5, 0.5, 1])  # gray
-
-    # Update cluster count
+    # --- Update UI ---
     if cluster_count_label:
-      cluster_count_label.configure(text=f"Found {len(clusters)} clusters")
+      cluster_count_label.configure(text=f"Found {num_clusters} clusters") # This should now match dendrogram visually
 
     # Create a frame for button rows
     buttons_frame = ctk.CTkFrame(current_frame, fg_color="transparent")
@@ -218,14 +220,14 @@ def display_clusters(data):
     button_count = 0
     
     # Create buttons in dendrogram order
-    for label in ordered_labels:
+    for cluster_info in processed_clusters:
       # Create new row frame if needed
       if button_count % buttons_per_row == 0:
         current_row_frame = ctk.CTkFrame(buttons_frame, fg_color="transparent")
         current_row_frame.pack(fill='x', pady=(0, 2))
       
-      cluster_neurons = clusters[label]
-      color = color_map[label]
+      cluster_neurons = cluster_info['neurons']
+      color = cluster_info['color']
       
       hex_color = '#{:02x}{:02x}{:02x}'.format(
         int(color[0] * 255),

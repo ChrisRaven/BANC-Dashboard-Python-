@@ -210,6 +210,7 @@ def get_clusters_thread(input_ids, callback, eps):
 
 def _perform_clustering(merged_partners, callback, eps):
   global _current_partner_data
+  neuron_ids = []
   try:
     # Convert dictionary data to feature matrix
     neuron_ids = list(merged_partners.keys())
@@ -307,6 +308,7 @@ def _perform_clustering(merged_partners, callback, eps):
     callback({
       'n_clusters': len(clusters),
       'clusters': clusters,
+      'neuron_ids': neuron_ids,
       'silhouette': silhouette,
       'eps_used': eps,
       'distances': X,
@@ -314,10 +316,13 @@ def _perform_clustering(merged_partners, callback, eps):
     })
   except Exception as e:
     print(f"Error in _perform_clustering: {str(e)}")
-    callback({
+    error_data = {
       'status': Status.ERROR,
       'content': f'Error during clustering: {str(e)}'
-    })
+    }
+    if neuron_ids:
+        error_data['neuron_ids'] = neuron_ids 
+    callback(error_data)
 
 def download_skeleton(nid):
   path = os.path.join('skeleton_cache', f'{nid}.h5')
