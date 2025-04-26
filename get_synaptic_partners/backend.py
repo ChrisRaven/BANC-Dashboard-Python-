@@ -308,7 +308,7 @@ def filter_by_no_of_fragments_request(source_group, min_size, max_fragments, sou
     'Cookie': f'middle_auth_token={API_TOKEN}'
   }
 
-  def check_fragments(seg_id, min_size=10000, max_fragments=50, max_retries=5):
+  def check_fragments(seg_id, min_size=10000, max_fragments=100, max_retries=5):
     url = f"{base_url}{seg_id}:0?verify=1&prepend_seg_ids=1"
     retries = 0
     while retries < max_retries:

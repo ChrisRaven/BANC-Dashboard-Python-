@@ -89,26 +89,66 @@ def find_annotated(search_text, callback):
 
 def find_annotated_thread(search_text, callback):
   if not search_text:
+    callback([]) # Return empty list if search is empty
     return
-    
-  search_terms = set(clean_input(search_text, output_type=str))
 
+  search_text = search_text.strip() # Trim overall search text
   matching_rows = []
-  # Convert to numpy arrays for faster operations
-  tags = entries_result['tag'].values
-  tag2s = entries_result['tag2'].values
+
+  # Access the globally loaded or cached data
+  # Ensure entries_result is a DataFrame and accessible here
+  if 'entries_result' not in globals() or entries_result is None:
+      print("Error: entries_result DataFrame not loaded.")
+      callback([])
+      return
+
+  tags = entries_result['tag'] # Access as pandas Series for string methods
   root_ids = entries_result['pt_root_id'].values
-  copytext('\n'.join(map(str, root_ids)))
-  # Vectorized check for tag matches
-  tag_matches = np.isin(tags, list(search_terms))
-  matching_rows.extend(root_ids[tag_matches])
-  
-  # Vectorized check for tag2 matches
-  valid_tag2s = pd.notna(tag2s)
-  if valid_tag2s.any():
-    # Split and check tag2s only where they exist
-    tag2_terms = [set(str(t).split()) if pd.notna(t) else set() for t in tag2s[valid_tag2s]]
-    tag2_matches = [bool(t & search_terms) for t in tag2_terms]
-    matching_rows.extend(root_ids[valid_tag2s][tag2_matches])
-  
-  callback(matching_rows)
+
+  # Check for special prefixes
+  if search_text.startswith("STARTS_WITH:"):
+    phrase = search_text[len("STARTS_WITH:"):].strip()
+    if phrase: # Only search if phrase is not empty
+      mask = tags.str.startswith(phrase, na=False)
+      matching_rows.extend(root_ids[mask])
+
+  elif search_text.startswith("ENDS_WITH:"):
+    phrase = search_text[len("ENDS_WITH:"):].strip()
+    if phrase:
+      mask = tags.str.endswith(phrase, na=False)
+      matching_rows.extend(root_ids[mask])
+
+  elif search_text.startswith("CONTAINS:"):
+    phrase = search_text[len("CONTAINS:"):].strip()
+    if phrase:
+      mask = tags.str.contains(phrase, na=False, regex=False) # Use regex=False for literal contains
+      matching_rows.extend(root_ids[mask])
+
+  else:
+    # --- Original exact match logic (modified slightly for clarity) ---
+    search_terms = set(clean_input(search_text, output_type=str))
+    if not search_terms: # Handle case where clean_input results in empty set
+        callback([])
+        return
+        
+    # Vectorized check for exact tag matches
+    # Ensure tags is treated as strings for isin if necessary
+    tag_matches = tags.astype(str).isin(list(search_terms))
+    matching_rows.extend(root_ids[tag_matches])
+
+    # Check tag2s (only in exact match mode)
+    tag2s = entries_result['tag2'] # Access as Series
+    valid_tag2s_mask = pd.notna(tag2s)
+    
+    if valid_tag2s_mask.any():
+        # Apply split and check only on valid tag2s
+        tag2s_to_check = tag2s[valid_tag2s_mask].astype(str)
+        # Efficiently check if any search term is in the split tag2 words
+        tag2_match_flags = tag2s_to_check.str.split(expand=True).isin(list(search_terms)).any(axis=1)
+        # Get the root_ids corresponding to these matches
+        matched_tag2_root_ids = root_ids[valid_tag2s_mask][tag2_match_flags]
+        matching_rows.extend(matched_tag2_root_ids)
+
+  # Remove duplicates before calling back
+  unique_matching_rows = list(set(matching_rows))
+  callback(unique_matching_rows)
