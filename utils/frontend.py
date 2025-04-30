@@ -70,26 +70,51 @@ def countTextbox(parent, label=''):
     command=lambda: copytext(textbox.get('1.0', 'end-1c'))
   )
   copy_button.visible = False
+  
+  # Track mouse over status for both elements
+  mouse_over_textbox = False
+  mouse_over_button = False
 
-  def show_copy_button(event):
-    if not copy_button.visible:
-      copy_button.place(relx=0.995, rely=0.85, anchor='ne')
-      copy_button.visible = True
+  def update_button_visibility():
+    if mouse_over_textbox or mouse_over_button:
+      if not copy_button.visible:
+        copy_button.place(relx=0.995, rely=0.85, anchor='ne')
+        copy_button.visible = True
+    else:
+      if copy_button.visible:
+        copy_button.place_forget()
+        copy_button.visible = False
 
-  def hide_copy_button(event):
-    if copy_button.visible:
-      copy_button.place_forget()
-      copy_button.visible = False
+  def textbox_enter(event):
+    nonlocal mouse_over_textbox
+    mouse_over_textbox = True
+    update_button_visibility()
+
+  def textbox_leave(event):
+    nonlocal mouse_over_textbox
+    mouse_over_textbox = False
+    # Small delay to allow transition between elements
+    container.after(100, update_button_visibility)
+  
+  def button_enter(event):
+    nonlocal mouse_over_button
+    mouse_over_button = True
+    update_button_visibility()
+
+  def button_leave(event):
+    nonlocal mouse_over_button
+    mouse_over_button = False
+    update_button_visibility()
   
   def update_counter(event=None):
     text = textbox.get('1.0', 'end-1c')
     num_lines = len(text.split('\n')) if text.strip() else 0
     counter.configure(text=f'{num_lines}')
   
-  textbox.bind('<Enter>', show_copy_button)
-  textbox.bind('<Leave>', hide_copy_button)
-  copy_button.bind('<Enter>', show_copy_button)
-  copy_button.bind('<Leave>', hide_copy_button)
+  textbox.bind('<Enter>', textbox_enter)
+  textbox.bind('<Leave>', textbox_leave)
+  copy_button.bind('<Enter>', button_enter)
+  copy_button.bind('<Leave>', button_leave)
   
   # Bind to both key events and textbox modifications
   textbox.bind('<KeyRelease>', update_counter)
