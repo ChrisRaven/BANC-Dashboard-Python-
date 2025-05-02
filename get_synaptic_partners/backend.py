@@ -318,14 +318,14 @@ def filter_by_no_of_fragments_request(source_group, min_size, max_fragments, sou
           total_size = 0
           fragments = response.json().get("fragments", [])
           if len(fragments) > max_fragments:
-            return None
+            return { "type": "larger", "id": seg_id }
           for frag in fragments:
             if "/" not in frag:  # bounding box fragment
-              return seg_id
+              return { "type": "smaller", "id": seg_id }
             # offset fragment, extract size
             total_size += int(frag.rsplit(":", 1)[-1])
           if total_size >= min_size:
-            return seg_id
+            return { "type": "smaller", "id": seg_id }
           return None
 
         elif response.status_code in {429, 500, 502, 503, 504}:
@@ -344,7 +344,10 @@ def filter_by_no_of_fragments_request(source_group, min_size, max_fragments, sou
   saved = 0
   rejected = 0
   total = len(source_ids)
-  results = []
+  results = {
+    "smaller": [],
+    "larger": []
+  }
   requests_sent = 0
 
   with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -354,7 +357,10 @@ def filter_by_no_of_fragments_request(source_group, min_size, max_fragments, sou
       result = future.result()
       if result is not None:
         saved += 1
-        results.append(result)
+        if (result["type"] == "smaller"):
+          results["smaller"].append(result["id"])
+        else:
+          results["larger"].append(result["id"])
       else:
         rejected += 1
 

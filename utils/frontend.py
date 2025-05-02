@@ -28,9 +28,11 @@ def hide_loading_indicator():
     loading_indicator.place_forget()
     loading_indicator = None
 
+
 def insert(where, what):
   where.delete('1.0', 'end')
   where.insert('1.0', what)
+
 
 def countTextbox(parent, label=''):
   container = ctk.CTkFrame(parent, fg_color='transparent')
