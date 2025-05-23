@@ -64,3 +64,23 @@ def create_filters_section(root):
   large_column = widgets.column(parent=filtered_results_wrapper)
   filtered_partners_large = widgets.countTextbox(parent=large_column, label='Large')
   
+
+  def execute_code():
+    code = exec_code.get('1.0', 'end').strip()
+    execute(code)
+
+  exec_code = widgets.countTextbox(parent=frame, label='Code')
+  exec_button = widgets.button(parent=frame, label='Execute', action=execute_code)
+
+
+'''
+from caveclient import CAVEclient;
+import pandas as pd;
+client = CAVEclient(datastack_name='brain_and_nerve_cord', auth_token=API_TOKEN);
+bbox = [[0, 0, 80000], [2000000, 10000000, 85000]]
+result=client.materialize.synapse_query(pre_ids=[720575941502620978], bounding_box=bbox);
+pd.options.display.max_columns = None
+pd.options.display.max_rows = None
+print('-----')
+print(result['post_pt_root_id'].to_string(index=False))
+'''

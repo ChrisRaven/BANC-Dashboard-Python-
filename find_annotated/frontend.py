@@ -293,7 +293,9 @@ def create_annotated_section(root):
     "3887": "Dorfam Rastgarmoghaddam",
     "3993": "Azusa Kamikouchi",
     "4280": "Emily Kophs",
-    "4287": "Kangrui Leng"
+    "4287": "Kangrui Leng",
+    "6818": "Ben Jourdan",
+    "6830": "Gregory Schwartzman"
   }
 
   def show_user_stats():

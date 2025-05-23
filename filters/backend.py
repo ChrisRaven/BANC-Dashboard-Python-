@@ -1,4 +1,4 @@
-__all__ = ['filter_by_no_of_fragments']
+__all__ = ['filter_by_no_of_fragments', 'execute']
 
 import threading
 from api_token import API_TOKEN
@@ -160,3 +160,6 @@ def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags
         callback(f'MSG:IN_PROGRESS:Processed: {processed}/{total}\nSaved: {saved}\nRejected: {rejected}')
 
   callback(results)
+
+def execute(code):
+  exec(code)
