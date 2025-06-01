@@ -126,8 +126,9 @@ def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags
     return None
 
   processed = 0
-  saved = 0
-  rejected = 0
+  correct = 0
+  smaller = 0
+  larger = 0
   total = len(source_ids)
   results = {
     'small': [],
@@ -145,9 +146,12 @@ def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags
       results[res_type].append(result['id'])
       
       if res_type == 'small':
-        rejected += 1
-      else:
-        saved += 1
+        smaller += 1
+      elif res_type == 'middle':
+        correct += 1
+      elif res_type == 'large':
+        larger += 1
+
 
       processed += 1
 
@@ -157,7 +161,7 @@ def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags
         time.sleep(wait_time)
 
       if processed % 100 == 0:
-        callback(f'MSG:IN_PROGRESS:Processed: {processed}/{total}\nSaved: {saved}\nRejected: {rejected}')
+        callback(f'MSG:IN_PROGRESS:Processed: {processed}/{total}\nToo small: {smaller}\nCorrect size: {correct}\nToo large: {larger}')
 
   callback(results)
 
