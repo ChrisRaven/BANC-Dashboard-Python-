@@ -55,7 +55,6 @@ def create_filters_section(root):
   max_fragments = widgets.labeledEntry(parent=max_fragments_wrapper, label='Max frags', default_value='100')
 
   
-
   filtered_results_wrapper = widgets.column_wrapper(parent=frame)
   small_column = widgets.column(parent=filtered_results_wrapper)
   filtered_partners_small = widgets.countTextbox(parent=small_column, label='Small')
@@ -64,15 +63,76 @@ def create_filters_section(root):
   large_column = widgets.column(parent=filtered_results_wrapper)
   filtered_partners_large = widgets.countTextbox(parent=large_column, label='Large')
   
+  def filter_bounding_box_handler():
+    show_loading_indicator(root)
+    min_x = min_x_input.get().strip()
+    min_y = min_y_input.get().strip()
+    min_z = min_z_input.get().strip()
+    max_x = max_x_input.get().strip()
+    max_y = max_y_input.get().strip()
+    max_z = max_z_input.get().strip()
+    source_text = input_ids.get('1.0', 'end').strip()
+    source_ids = clean_input(source_text)
+    filter_by_bounding_box(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, filter_bounding_box_callback)
 
-  def execute_code():
-    code = exec_code.get('1.0', 'end').strip()
-    execute(code)
+  def filter_bounding_box_callback(result):
+    if isinstance(result, str) and result.startswith('MSG:'):
+      msg_type = result.split(':')[1]
+      msg_content = ':'.join(result.split(':')[2:])
+      match msg_type:
+        case 'IN_PROGRESS':
+          insert(inside_results, msg_content)
+          insert(outside_results, msg_content)
+        case 'COMPLETE':
+          hide_loading_indicator()
+          insert(inside_results, '\n'.join(map(str, result['inside'])))
+          insert(outside_results, '\n'.join(map(str, result['outside'])))
+        case 'ERROR':
+          hide_loading_indicator()
+          insert(inside_results, msg_content)
+          insert(outside_results, msg_content)
+    else:
+      hide_loading_indicator()
+      insert(inside_results, '\n'.join(map(str, result['inside']))) 
+      insert(outside_results, '\n'.join(map(str, result['outside']))) 
+    
 
-  exec_code = widgets.countTextbox(parent=frame, label='Code')
-  exec_button = widgets.button(parent=frame, label='Execute', action=execute_code)
+  widgets.label(parent=frame, text='Filter by bounding box')
 
+  filter_by_bounding_box_wrapper = widgets.column_wrapper(parent=frame)
+  
+  col1 = widgets.column(parent=filter_by_bounding_box_wrapper)
+  # Create 2x3 matrix of input fields
+  input_matrix = widgets.column_wrapper(parent=col1)
+  x_constraints = widgets.column_wrapper(parent=input_matrix)
+  y_constraints = widgets.column_wrapper(parent=input_matrix)
+  z_constraints = widgets.column_wrapper(parent=input_matrix)
+  
+  # Row 1 inputs
+  min_x_col = widgets.column(parent=x_constraints)
+  min_x_input = widgets.entry(parent=min_x_col, width=60)
+  max_x_col = widgets.column(parent=x_constraints)
+  max_x_input = widgets.entry(parent=max_x_col, width=60)
+  
+  # Row 2 inputs
+  min_y_col = widgets.column(parent=y_constraints)
+  min_y_input = widgets.entry(parent=min_y_col, width=60)
+  max_y_col = widgets.column(parent=y_constraints)
+  max_y_input = widgets.entry(parent=max_y_col, width=60)
+  
+  # Row 3 inputs
+  min_z_col = widgets.column(parent=z_constraints)
+  min_z_input = widgets.entry(parent=min_z_col, width=60)
+  max_z_col = widgets.column(parent=z_constraints)
+  max_z_input = widgets.entry(parent=max_z_col, width=60)
+  
+  # Create two countTextboxes
+  col2 = widgets.column(parent=filter_by_bounding_box_wrapper)
+  inside_results = widgets.countTextbox(parent=col2, label='Inside')
+  col3 = widgets.column(parent=filter_by_bounding_box_wrapper)
+  outside_results = widgets.countTextbox(parent=col3, label='Outside')
 
+  widgets.button(parent=frame, label='Filter', action=filter_bounding_box_handler)
 '''
 from caveclient import CAVEclient;
 import pandas as pd;

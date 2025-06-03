@@ -32,3 +32,10 @@ def create_coords_section(root):
   right_column = widgets.column(parent=wrapper)
   incorrect_ids = widgets.countTextbox(parent=right_column, label='Incorrect IDs')
   
+
+  def execute_code():
+    code = exec_code.get('1.0', 'end').strip()
+    execute(code)
+
+  exec_code = widgets.countTextbox(parent=frame, label='Code')
+  exec_button = widgets.button(parent=frame, label='Execute', action=execute_code)

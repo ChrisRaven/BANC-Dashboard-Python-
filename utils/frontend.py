@@ -198,20 +198,21 @@ def button(parent, label, action):
   return button
 
 
-def entry(parent, default_value='0'):
+def entry(parent, width=120, default_value='0'):
   entry = ctk.CTkEntry(
     parent,
-    height=BUTTON_HEIGHT
+    height=BUTTON_HEIGHT,
+    width=width
   )
   entry.insert(0, default_value) 
   entry.pack(fill='x', anchor='nw', padx=2, pady=2)
   return entry
 
 
-def labeledEntry(parent, label, default_value='0'):
+def labeledEntry(parent, label, width=120, default_value='0'):
   lbl = widgets.label(parent=parent, text=label)
   lbl.pack_configure(pady=(2, 0))
-  entry = widgets.entry(parent=parent, default_value=default_value)
+  entry = widgets.entry(parent=parent, width=width, default_value=default_value)
   entry.pack_configure(pady=(0, 2))
   return entry
 

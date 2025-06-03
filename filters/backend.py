@@ -1,12 +1,14 @@
-__all__ = ['filter_by_no_of_fragments', 'execute']
+__all__ = ['filter_by_no_of_fragments', 'filter_by_bounding_box']
 
 import threading
+from caveclient import CAVEclient
 from api_token import API_TOKEN
 from constants import *
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests import get, exceptions
 import random
+import pandas as pd
 
 '''
 def filter_dust(source_group, min_no_of_synapses, callback):
@@ -165,5 +167,99 @@ def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags
 
   callback(results)
 
-def execute(code):
-  exec(code)
+def filter_by_bounding_box(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, callback):
+  threading.Thread(target=lambda: filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, callback), daemon=True).start()
+
+def filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, callback):
+  client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
+  leaves = []
+  processed = 0
+  total = len(source_ids)
+  lock = threading.Lock()
+  # Map source_id to its leaves
+  source_to_leaves = {}
+
+  def safe_get_leaves(seg_id):
+    try:
+      return get_leaves(seg_id)
+    except Exception as e:
+      return []
+
+  with ThreadPoolExecutor(max_workers=10) as executor:
+    future_to_seg = {executor.submit(safe_get_leaves, seg_id): seg_id for seg_id in source_ids}
+    for i, future in enumerate(as_completed(future_to_seg), 1):
+      seg_id = future_to_seg[future]
+      seg_leaves = future.result()
+      with lock:
+        leaves.extend(seg_leaves)
+        source_to_leaves[seg_id] = seg_leaves
+      processed += 1
+      if processed % 100 == 0 or processed == total:
+        callback(f'MSG:IN_PROGRESS:Processed {processed}/{total} segment leaves')
+
+  # Notify frontend before analyzing
+  callback('MSG:IN_PROGRESS:Analyzing collected data...')
+
+  coords = client.l2cache.get_l2data(leaves, attributes=['rep_coord_nm'])
+
+  # Build DataFrame from coords
+  df = pd.DataFrame.from_dict(coords, orient='index')
+  df['id'] = df.index # keep as string to avoid OverflowError
+  df[['x', 'y', 'z']] = pd.DataFrame(df['rep_coord_nm'].tolist(), index=df.index)
+
+  # Filter for valid rows (rep_coord_nm present and length 3)
+  df_valid = df[df['rep_coord_nm'].apply(lambda v: isinstance(v, list) and len(v) == 3)]
+
+  # Convert bounds to float for comparison
+  min_xf, min_yf, min_zf = float(min_x), float(min_y), float(min_z)
+  max_xf, max_yf, max_zf = float(max_x), float(max_y), float(max_z)
+
+  # Apply bounding box filter
+  inside_mask = (
+    (df_valid['x'] >= min_xf) & (df_valid['x'] <= max_xf) &
+    (df_valid['y'] >= min_yf) & (df_valid['y'] <= max_yf) &
+    (df_valid['z'] >= min_zf) & (df_valid['z'] <= max_zf)
+  )
+  inside_leaves = set(df_valid.loc[inside_mask, 'id'].tolist())
+
+  inside_source_ids = []
+  outside_source_ids = []
+  for source_id, leaf_list in source_to_leaves.items():
+    # All leaves must be inside
+    if leaf_list and all(str(leaf_id) in inside_leaves for leaf_id in leaf_list):
+      inside_source_ids.append(source_id)
+    else:
+      outside_source_ids.append(source_id)
+
+  callback({'inside': inside_source_ids, 'outside': outside_source_ids})
+
+def get_leaves(seg_id):
+  url = f'https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/node/{seg_id}/leaves?stop_layer=2'
+  headers = {
+    'Content-Type': 'application/json',
+    'Accept-Encoding': 'zstd',
+    'Authorization': f'Bearer {API_TOKEN}',
+    'Cookie': f'middle_auth_token={API_TOKEN}'
+  }
+
+  response = get(url, headers=headers, timeout=10)
+  if response.status_code == 200:
+    return response.json()['leaf_ids']
+
+
+
+
+
+'''
+import logging
+import http.client as http_client
+
+http_client.HTTPConnection.debuglevel = 1
+
+logging.basicConfig()
+logging.getLogger().setLevel(logging.DEBUG)
+
+# Specifically target urllib3 used by requests
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
+logging.getLogger("urllib3").propagate = True
+'''

@@ -1,4 +1,4 @@
-__all__ = ['check_coords']
+__all__ = ['check_coords', 'execute']
 
 import threading
 import banc
@@ -31,3 +31,7 @@ def check_coords_request(data, callback):
 
   valid_coords = ';'.join([','.join(map(str, coord)) for coord in valid_coords])
   callback(valid_coords, invalid_segment_ids)
+
+
+def execute(code):
+  exec(code)
