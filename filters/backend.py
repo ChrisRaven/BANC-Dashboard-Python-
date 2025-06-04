@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests import get, exceptions
 import random
 import pandas as pd
+import numpy as np
 
 '''
 def filter_dust(source_group, min_no_of_synapses, callback):
@@ -210,9 +211,57 @@ def filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y
   # Filter for valid rows (rep_coord_nm present and length 3)
   df_valid = df[df['rep_coord_nm'].apply(lambda v: isinstance(v, list) and len(v) == 3)]
 
-  # Convert bounds to float for comparison
-  min_xf, min_yf, min_zf = float(min_x), float(min_y), float(min_z)
-  max_xf, max_yf, max_zf = float(max_x), float(max_y), float(max_z)
+  from constants import BY_PLANE
+
+  if BY_PLANE:
+    # Plane defined by three points
+    p1_unscaled = np.array([61017, 37994, 4544])
+    p2_unscaled = np.array([35248, 58150, 2173])
+    p3_unscaled = np.array([63234, 53952, 1038])
+    # Normal vector to the plane
+    v1 = p2_unscaled - p1_unscaled
+    v2 = p3_unscaled - p1_unscaled
+    normal_unscaled = np.cross(v1, v2)
+
+
+    scaling_factors = np.array([4, 4, 45])
+    normal = normal_unscaled / scaling_factors
+    normal = normal / np.linalg.norm(normal)
+
+    p1 = p1_unscaled * scaling_factors
+
+    def point_side(point):
+      return np.dot(normal, point - p1)
+    inside_source_ids = []
+    outside_source_ids = []
+
+    for source_id, leaf_list in source_to_leaves.items():
+      if not leaf_list:
+        outside_source_ids.append(source_id)
+        continue
+      # Get coordinates for all leaves
+      leaf_coords = [df_valid.loc[str(leaf_id), ['x', 'y', 'z']].values for leaf_id in leaf_list if str(leaf_id) in df_valid.index]
+      if not leaf_coords:
+        outside_source_ids.append(source_id)
+        continue
+      # Check the sign of all points
+      sides = [point_side(coord) for coord in leaf_coords]
+      if all(s >= 0 for s in sides):
+        inside_source_ids.append(source_id)
+      else:
+        outside_source_ids.append(source_id)
+    callback({'inside': inside_source_ids, 'outside': outside_source_ids})
+    return
+
+  # we have to convert nm resolution to px resolution (or the other way?)
+  res = {
+    'x': 4,
+    'y': 4,
+    'z': 45
+  }
+
+  min_xf, min_yf, min_zf = float(min_x) * res['x'], float(min_y) * res['y'], float(min_z) * res['z']
+  max_xf, max_yf, max_zf = float(max_x) * res['x'], float(max_y) * res['y'], float(max_z) * res['z']
 
   # Apply bounding box filter
   inside_mask = (
@@ -245,21 +294,3 @@ def get_leaves(seg_id):
   response = get(url, headers=headers, timeout=10)
   if response.status_code == 200:
     return response.json()['leaf_ids']
-
-
-
-
-
-'''
-import logging
-import http.client as http_client
-
-http_client.HTTPConnection.debuglevel = 1
-
-logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
-
-# Specifically target urllib3 used by requests
-logging.getLogger("urllib3").setLevel(logging.DEBUG)
-logging.getLogger("urllib3").propagate = True
-'''

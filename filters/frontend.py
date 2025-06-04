@@ -102,37 +102,44 @@ def create_filters_section(root):
   filter_by_bounding_box_wrapper = widgets.column_wrapper(parent=frame)
   
   col1 = widgets.column(parent=filter_by_bounding_box_wrapper)
-  # Create 2x3 matrix of input fields
-  input_matrix = widgets.column_wrapper(parent=col1)
-  x_constraints = widgets.column_wrapper(parent=input_matrix)
-  y_constraints = widgets.column_wrapper(parent=input_matrix)
-  z_constraints = widgets.column_wrapper(parent=input_matrix)
+
+  bounding_box_dimensions = widgets.column_wrapper(parent=col1)
+  x_constraints = widgets.column_wrapper(parent=bounding_box_dimensions)
+  y_constraints = widgets.column_wrapper(parent=bounding_box_dimensions)
+  z_constraints = widgets.column_wrapper(parent=bounding_box_dimensions)
   
-  # Row 1 inputs
   min_x_col = widgets.column(parent=x_constraints)
-  min_x_input = widgets.entry(parent=min_x_col, width=60)
+  min_x_input = widgets.entry(parent=min_x_col, width=60, default_value='0')
   max_x_col = widgets.column(parent=x_constraints)
-  max_x_input = widgets.entry(parent=max_x_col, width=60)
+  max_x_input = widgets.entry(parent=max_x_col, width=60, default_value='262000')
   
-  # Row 2 inputs
   min_y_col = widgets.column(parent=y_constraints)
-  min_y_input = widgets.entry(parent=min_y_col, width=60)
+  min_y_input = widgets.entry(parent=min_y_col, width=60, default_value='0')
   max_y_col = widgets.column(parent=y_constraints)
-  max_y_input = widgets.entry(parent=max_y_col, width=60)
+  max_y_input = widgets.entry(parent=max_y_col, width=60, default_value='300000')
   
-  # Row 3 inputs
   min_z_col = widgets.column(parent=z_constraints)
-  min_z_input = widgets.entry(parent=min_z_col, width=60)
+  min_z_input = widgets.entry(parent=min_z_col, width=60, default_value='0')
   max_z_col = widgets.column(parent=z_constraints)
-  max_z_input = widgets.entry(parent=max_z_col, width=60)
+  max_z_input = widgets.entry(parent=max_z_col, width=60, default_value='7000')
   
-  # Create two countTextboxes
   col2 = widgets.column(parent=filter_by_bounding_box_wrapper)
   inside_results = widgets.countTextbox(parent=col2, label='Inside')
   col3 = widgets.column(parent=filter_by_bounding_box_wrapper)
   outside_results = widgets.countTextbox(parent=col3, label='Outside')
 
   widgets.button(parent=frame, label='Filter', action=filter_bounding_box_handler)
+
+
+
+
+
+
+
+
+
+
+
 '''
 from caveclient import CAVEclient;
 import pandas as pd;

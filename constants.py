@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+BY_PLANE = True  # Set to True to enable plane-based filtering in bounding box filter
 BUTTON_PADDING = 12
 FRAME_WIDTH = 700
 PADDING = 10
