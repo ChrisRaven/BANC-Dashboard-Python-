@@ -1,4 +1,4 @@
-__all__ = ['filter_by_no_of_fragments', 'filter_by_bounding_box']
+__all__ = ['filter_by_no_of_fragments', 'filter_by_planes']
 
 import threading
 from caveclient import CAVEclient
@@ -10,6 +10,7 @@ from requests import get, exceptions
 import random
 import pandas as pd
 import numpy as np
+import re
 
 '''
 def filter_dust(source_group, min_no_of_synapses, callback):
@@ -168,10 +169,10 @@ def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags
 
   callback(results)
 
-def filter_by_bounding_box(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, callback):
-  threading.Thread(target=lambda: filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, callback), daemon=True).start()
+def filter_by_planes(source_ids, planes, callback):
+  threading.Thread(target=lambda: filter_by_planes_request(source_ids, planes, callback), daemon=True).start()
 
-def filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, callback):
+def filter_by_planes_request(source_ids, planes, callback):
   client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
   leaves = []
   processed = 0
@@ -211,13 +212,13 @@ def filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y
   # Filter for valid rows (rep_coord_nm present and length 3)
   df_valid = df[df['rep_coord_nm'].apply(lambda v: isinstance(v, list) and len(v) == 3)]
 
-  from constants import BY_PLANE
-
-  if BY_PLANE:
+  def filter_by_single_plane(plane):
     # Plane defined by three points
-    p1_unscaled = np.array([61017, 37994, 4544])
-    p2_unscaled = np.array([35248, 58150, 2173])
-    p3_unscaled = np.array([63234, 53952, 1038])
+    plane = re.split(r';\s*', plane)
+    p1_unscaled = np.array([float(x) for x in re.split(r',\s*', plane[0])])
+    p2_unscaled = np.array([float(x) for x in re.split(r',\s*', plane[1])])
+    p3_unscaled = np.array([float(x) for x in re.split(r',\s*', plane[2])])
+
     # Normal vector to the plane
     v1 = p2_unscaled - p1_unscaled
     v2 = p3_unscaled - p1_unscaled
@@ -246,41 +247,18 @@ def filter_by_bounding_box_request(source_ids, min_x, min_y, min_z, max_x, max_y
         continue
       # Check the sign of all points
       sides = [point_side(coord) for coord in leaf_coords]
+
       if all(s >= 0 for s in sides):
         inside_source_ids.append(source_id)
       else:
         outside_source_ids.append(source_id)
     callback({'inside': inside_source_ids, 'outside': outside_source_ids})
     return
+  
+  planes = planes.splitlines()
 
-  # we have to convert nm resolution to px resolution (or the other way?)
-  res = {
-    'x': 4,
-    'y': 4,
-    'z': 45
-  }
-
-  min_xf, min_yf, min_zf = float(min_x) * res['x'], float(min_y) * res['y'], float(min_z) * res['z']
-  max_xf, max_yf, max_zf = float(max_x) * res['x'], float(max_y) * res['y'], float(max_z) * res['z']
-
-  # Apply bounding box filter
-  inside_mask = (
-    (df_valid['x'] >= min_xf) & (df_valid['x'] <= max_xf) &
-    (df_valid['y'] >= min_yf) & (df_valid['y'] <= max_yf) &
-    (df_valid['z'] >= min_zf) & (df_valid['z'] <= max_zf)
-  )
-  inside_leaves = set(df_valid.loc[inside_mask, 'id'].tolist())
-
-  inside_source_ids = []
-  outside_source_ids = []
-  for source_id, leaf_list in source_to_leaves.items():
-    # All leaves must be inside
-    if leaf_list and all(str(leaf_id) in inside_leaves for leaf_id in leaf_list):
-      inside_source_ids.append(source_id)
-    else:
-      outside_source_ids.append(source_id)
-
-  callback({'inside': inside_source_ids, 'outside': outside_source_ids})
+  for plane in planes:
+    filter_by_single_plane(plane)
 
 def get_leaves(seg_id):
   url = f'https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/node/{seg_id}/leaves?stop_layer=2'

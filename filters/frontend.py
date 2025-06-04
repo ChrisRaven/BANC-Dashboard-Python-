@@ -63,19 +63,14 @@ def create_filters_section(root):
   large_column = widgets.column(parent=filtered_results_wrapper)
   filtered_partners_large = widgets.countTextbox(parent=large_column, label='Large')
   
-  def filter_bounding_box_handler():
+  def filter_by_planes_handler():
     show_loading_indicator(root)
-    min_x = min_x_input.get().strip()
-    min_y = min_y_input.get().strip()
-    min_z = min_z_input.get().strip()
-    max_x = max_x_input.get().strip()
-    max_y = max_y_input.get().strip()
-    max_z = max_z_input.get().strip()
     source_text = input_ids.get('1.0', 'end').strip()
     source_ids = clean_input(source_text)
-    filter_by_bounding_box(source_ids, min_x, min_y, min_z, max_x, max_y, max_z, filter_bounding_box_callback)
+    planes = planes_textbox.get('1.0', 'end').strip()
+    filter_by_planes(source_ids, planes, filter_by_planes_callback)
 
-  def filter_bounding_box_callback(result):
+  def filter_by_planes_callback(result):
     if isinstance(result, str) and result.startswith('MSG:'):
       msg_type = result.split(':')[1]
       msg_content = ':'.join(result.split(':')[2:])
@@ -97,38 +92,18 @@ def create_filters_section(root):
       insert(outside_results, '\n'.join(map(str, result['outside']))) 
     
 
-  widgets.label(parent=frame, text='Filter by bounding box')
+  widgets.label(parent=frame, text='Filter by planes')
 
-  filter_by_bounding_box_wrapper = widgets.column_wrapper(parent=frame)
+  filter_by_planes_wrapper = widgets.column_wrapper(parent=frame)
   
-  col1 = widgets.column(parent=filter_by_bounding_box_wrapper)
-
-  bounding_box_dimensions = widgets.column_wrapper(parent=col1)
-  x_constraints = widgets.column_wrapper(parent=bounding_box_dimensions)
-  y_constraints = widgets.column_wrapper(parent=bounding_box_dimensions)
-  z_constraints = widgets.column_wrapper(parent=bounding_box_dimensions)
-  
-  min_x_col = widgets.column(parent=x_constraints)
-  min_x_input = widgets.entry(parent=min_x_col, width=60, default_value='0')
-  max_x_col = widgets.column(parent=x_constraints)
-  max_x_input = widgets.entry(parent=max_x_col, width=60, default_value='262000')
-  
-  min_y_col = widgets.column(parent=y_constraints)
-  min_y_input = widgets.entry(parent=min_y_col, width=60, default_value='0')
-  max_y_col = widgets.column(parent=y_constraints)
-  max_y_input = widgets.entry(parent=max_y_col, width=60, default_value='300000')
-  
-  min_z_col = widgets.column(parent=z_constraints)
-  min_z_input = widgets.entry(parent=min_z_col, width=60, default_value='0')
-  max_z_col = widgets.column(parent=z_constraints)
-  max_z_input = widgets.entry(parent=max_z_col, width=60, default_value='7000')
-  
-  col2 = widgets.column(parent=filter_by_bounding_box_wrapper)
+  col1 = widgets.column(parent=filter_by_planes_wrapper)
+  planes_textbox = widgets.countTextbox(parent=col1, label='Planes')
+  col2 = widgets.column(parent=filter_by_planes_wrapper)
   inside_results = widgets.countTextbox(parent=col2, label='Inside')
-  col3 = widgets.column(parent=filter_by_bounding_box_wrapper)
+  col3 = widgets.column(parent=filter_by_planes_wrapper)
   outside_results = widgets.countTextbox(parent=col3, label='Outside')
 
-  widgets.button(parent=frame, label='Filter', action=filter_bounding_box_handler)
+  widgets.button(parent=frame, label='Filter', action=filter_by_planes_handler)
 
 
 
