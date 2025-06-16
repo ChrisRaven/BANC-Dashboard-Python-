@@ -6,11 +6,13 @@ from api_token import API_TOKEN
 from constants import *
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from requests import get, exceptions
+from requests import get, post, exceptions
 import random
 import pandas as pd
 import numpy as np
 import re
+import json
+
 
 '''
 def filter_dust(source_group, min_no_of_synapses, callback):
@@ -174,101 +176,163 @@ def filter_by_planes(source_ids, planes, callback):
 
 def filter_by_planes_request(source_ids, planes, callback):
   client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
-  leaves = []
-  processed = 0
-  total = len(source_ids)
+  segid_to_leaves = {}
   lock = threading.Lock()
-  # Map source_id to its leaves
-  source_to_leaves = {}
-
-  def safe_get_leaves(seg_id):
+  total = len(source_ids)
+  processed = 0
+  
+  def get_leaves_worker(seg_ids):
     try:
-      return get_leaves(seg_id)
+      leaves = get_leaves(seg_ids)
+      if leaves:
+        # Filter out any source_ids that have 10 or fewer leaves
+        return {seg_id: leaf_list for seg_id, leaf_list in leaves.items() if len(leaf_list) > 10}
+    except Exception:
+      return None
+    return None
+
+  # Create batches of 200 source_ids
+  batches = [source_ids[i:i + 200] for i in range(0, len(source_ids), 200)]
+  
+  with ThreadPoolExecutor(max_workers=10) as executor:
+    futures = {executor.submit(get_leaves_worker, batch): batch for batch in batches}
+    for i, future in enumerate(as_completed(futures), 1):
+      result = future.result()
+      if result:
+        with lock:
+          segid_to_leaves.update(result)
+      processed += len(futures[future])
+      if processed % 200 == 0 or processed == total:
+        callback(f'MSG:IN_PROGRESS:Got leaves for {processed}/{total} segments')
+
+  # Only use eligible source_ids from segid_to_leaves for all further processing
+  source_to_leaves = segid_to_leaves.copy()
+
+  # If planes is empty or only whitespace, return all eligible source_ids as 'inside'
+  if not planes or not planes.strip():
+    callback({'inside': list(source_to_leaves.keys()), 'outside': []})
+    return
+
+  callback('MSG:IN_PROGRESS:Getting L2 centroids...')
+  # Sample every 5th leaf to optimize processing
+  sampled_leaves = []
+  for leaf_list in source_to_leaves.values():
+    sampled_leaves.extend(leaf_list[::5])
+
+  # Process L2 centroids in batches of 10000
+  BATCH_SIZE = 10000
+  all_coords = {}
+  lock = threading.Lock()
+  total_batches = (len(sampled_leaves) + BATCH_SIZE - 1) // BATCH_SIZE  # Ceiling division
+  processed_batches = 0
+
+  def process_l2_batch(batch_num, batch_leaves):
+    try:
+      batch_coords = client.l2cache.get_l2data(batch_leaves, attributes=['rep_coord_nm'])
+      with lock:
+        all_coords.update(batch_coords)
+        nonlocal processed_batches
+        processed_batches += 1
+        callback(f'MSG:IN_PROGRESS:Processed {processed_batches} of {total_batches} batches of leaves')
     except Exception as e:
-      return []
+      callback(f'MSG:ERROR:Error processing batch {batch_num}: {str(e)}')
+    return batch_num
 
   with ThreadPoolExecutor(max_workers=10) as executor:
-    future_to_seg = {executor.submit(safe_get_leaves, seg_id): seg_id for seg_id in source_ids}
-    for i, future in enumerate(as_completed(future_to_seg), 1):
-      seg_id = future_to_seg[future]
-      seg_leaves = future.result()
-      with lock:
-        leaves.extend(seg_leaves)
-        source_to_leaves[seg_id] = seg_leaves
-      processed += 1
-      if processed % 100 == 0 or processed == total:
-        callback(f'MSG:IN_PROGRESS:Processed {processed}/{total} segment leaves')
+    futures = {
+      executor.submit(process_l2_batch, batch_num, sampled_leaves[i:i + BATCH_SIZE]): batch_num 
+      for batch_num, i in enumerate(range(0, len(sampled_leaves), BATCH_SIZE), 1)
+    }
+    
+    # Wait for all futures to complete
+    for future in as_completed(futures):
+      try:
+        future.result()
+      except Exception as e:
+        callback(f'MSG:ERROR:Error in batch {futures[future]}: {str(e)}')
 
-  # Notify frontend before analyzing
-  callback('MSG:IN_PROGRESS:Analyzing collected data...')
-
-  coords = client.l2cache.get_l2data(leaves, attributes=['rep_coord_nm'])
-
+  callback('MSG:IN_PROGRESS:Rearranging coords...')
   # Build DataFrame from coords
-  df = pd.DataFrame.from_dict(coords, orient='index')
+  df = pd.DataFrame.from_dict(all_coords, orient='index')
   df['id'] = df.index # keep as string to avoid OverflowError
   df[['x', 'y', 'z']] = pd.DataFrame(df['rep_coord_nm'].tolist(), index=df.index)
 
   # Filter for valid rows (rep_coord_nm present and length 3)
   df_valid = df[df['rep_coord_nm'].apply(lambda v: isinstance(v, list) and len(v) == 3)]
 
-  def filter_by_single_plane(plane):
-    # Plane defined by three points
-    plane = re.split(r';\s*', plane)
-    p1_unscaled = np.array([float(x) for x in re.split(r',\s*', plane[0])])
-    p2_unscaled = np.array([float(x) for x in re.split(r',\s*', plane[1])])
-    p3_unscaled = np.array([float(x) for x in re.split(r',\s*', plane[2])])
-
-    # Normal vector to the plane
+  plane_defs = []
+  planes_list = planes.splitlines()
+  for plane in planes_list:
+    plane_split = re.split(r';\s*', plane)
+    p1_unscaled = np.array([float(x) for x in re.split(r',\s*', plane_split[0])])
+    p2_unscaled = np.array([float(x) for x in re.split(r',\s*', plane_split[1])])
+    p3_unscaled = np.array([float(x) for x in re.split(r',\s*', plane_split[2])])
     v1 = p2_unscaled - p1_unscaled
     v2 = p3_unscaled - p1_unscaled
     normal_unscaled = np.cross(v1, v2)
-
-
     scaling_factors = np.array([4, 4, 45])
     normal = normal_unscaled / scaling_factors
     normal = normal / np.linalg.norm(normal)
-
     p1 = p1_unscaled * scaling_factors
+    plane_defs.append({'normal': normal, 'p1': p1})
 
-    def point_side(point):
-      return np.dot(normal, point - p1)
-    inside_source_ids = []
-    outside_source_ids = []
+  inside_source_ids = []
+  outside_source_ids = []
 
-    for source_id, leaf_list in source_to_leaves.items():
+  callback('MSG:IN_PROGRESS:Pre-computing valid leaf coordinates...')
+  # Pre-compute all valid leaf coordinates for faster lookup
+  # Convert DataFrame to dictionary first for faster lookups
+  coords_dict = {
+    str(idx): row[['x', 'y', 'z']].values 
+    for idx, row in df_valid.iterrows()
+  }
+  
+  # Create valid_coords dictionary using the pre-computed coords_dict
+  valid_coords = {
+    str(leaf_id): coords_dict[str(leaf_id)]
+    for leaf_id in set().union(*source_to_leaves.values())
+    if str(leaf_id) in coords_dict
+  }
+
+  callback('MSG:IN_PROGRESS:Checking leaves against planes...')
+  # Process all eligible source IDs in parallel
+  with ThreadPoolExecutor(max_workers=10) as executor:
+    def process_source(source_id, leaf_list):
       if not leaf_list:
-        outside_source_ids.append(source_id)
-        continue
-      # Get coordinates for all leaves
-      leaf_coords = [df_valid.loc[str(leaf_id), ['x', 'y', 'z']].values for leaf_id in leaf_list if str(leaf_id) in df_valid.index]
+        return source_id, False
+      # Get coordinates for all leaves in this source that have valid coordinates
+      leaf_coords = [valid_coords[str(leaf_id)] for leaf_id in leaf_list if str(leaf_id) in valid_coords]
       if not leaf_coords:
-        outside_source_ids.append(source_id)
-        continue
-      # Check the sign of all points
-      sides = [point_side(coord) for coord in leaf_coords]
+        return source_id, False
+      leaf_coords_array = np.array(leaf_coords)
+      for plane in plane_defs:
+        sides = np.dot(leaf_coords_array - plane['p1'], plane['normal'])
+        if not np.all(sides >= 0):
+          return source_id, False
+      return source_id, True
 
-      if all(s >= 0 for s in sides):
+    futures = [executor.submit(process_source, source_id, leaf_list) 
+              for source_id, leaf_list in source_to_leaves.items()]
+
+    for future in as_completed(futures):
+      source_id, is_inside = future.result()
+      if is_inside:
         inside_source_ids.append(source_id)
       else:
         outside_source_ids.append(source_id)
-    callback({'inside': inside_source_ids, 'outside': outside_source_ids})
-    return
-  
-  planes = planes.splitlines()
+  callback({'inside': inside_source_ids, 'outside': outside_source_ids})
+  return
 
-  for plane in planes:
-    filter_by_single_plane(plane)
-
-def get_leaves(seg_id):
-  url = f'https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/node/{seg_id}/leaves?stop_layer=2'
+def get_leaves(seg_ids):
+  url = f'https://cave.fanc-fly.com/segmentation/api/v1/table/wclee_fly_cns_001/node/leaves_many?stop_layer=2'
   headers = {
     'Content-Type': 'application/json',
     'Accept-Encoding': 'zstd',
     'Authorization': f'Bearer {API_TOKEN}',
     'Cookie': f'middle_auth_token={API_TOKEN}'
   }
+  data = json.dumps({"node_ids": seg_ids})
 
-  response = get(url, headers=headers, timeout=10)
+  response = post(url, data=data, headers=headers, timeout=10)
   if response.status_code == 200:
-    return response.json()['leaf_ids']
+    return response.json()

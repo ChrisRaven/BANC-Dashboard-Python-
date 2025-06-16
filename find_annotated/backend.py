@@ -40,6 +40,11 @@ def make_request(table_name, callback, return_result=False):
       'table': table_name,
       'timestamp': datetime.now().isoformat()
     }
+    # copy "backbone proofread" to the clipboard
+    #data = {
+    #  'table': 'backbone_proofread',
+    #  'timestamp': datetime.now().isoformat()
+    #}
     
     response = requests.post(url, params=params, headers=headers, json=data)
     content_type = response.headers.get('Content-Type', '')
@@ -54,6 +59,11 @@ def make_request(table_name, callback, return_result=False):
       try:
         arrow_data = pa.BufferReader(response.content)
         entries_result = pa.ipc.open_stream(arrow_data).read_all().to_pandas()
+        #pd.set_option('display.max_columns', None)
+        #print(entries_result)
+        # copy "backbone proofread" to the clipboard
+        #entries_result[['pt_position_x', 'pt_root_id']].to_clipboard(index=False, sep=', ')
+        #entries_result[entries_result['pt_position_x'] < 80000]['pt_root_id'].to_clipboard(index=False)
         if return_result:
           callback(entries_result)
       except Exception as e:
