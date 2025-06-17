@@ -1,4 +1,4 @@
-__all__ = ['filter_by_no_of_fragments', 'filter_by_planes']
+__all__ = ['filter_by_planes']
 
 import threading
 from caveclient import CAVEclient
@@ -13,168 +13,10 @@ import numpy as np
 import re
 import json
 
+def filter_by_planes(source_ids, planes, thresholds, callback):
+  threading.Thread(target=lambda: filter_by_planes_request(source_ids, planes, thresholds, callback), daemon=True).start()
 
-'''
-def filter_dust(source_group, min_no_of_synapses, callback):
-  threading.Thread(target=lambda: filter_dust_request(source_group, min_no_of_synapses, callback), daemon=True).start()
-
-def filter_dust_request(source_group, min_no_of_synapses, callback):
-  try:
-    client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
-
-    key = 'partners' if source_group == 'partners' else 'partners_of_partners'
-    source = data[key]
-    direction = data['direction']
-
-    if direction == 'both':
-      source_ids = pd.concat([source['upstream'], source['downstream']], ignore_index=True).values.flatten().tolist()
-    else:
-      source_ids = source[direction].values.flatten().tolist()
-
-    results = []
-    total = len(source_ids)
-    processed = 0
-    BATCH_SIZE = 500
-
-    def process_batch(batch):
-      retries = 0
-      while retries < 5:
-        try:
-          # Query both pre and post synapses for this batch
-          pre_synapses = client.materialize.synapse_query(pre_ids=batch)
-          post_synapses = client.materialize.synapse_query(post_ids=batch)
-          
-          # Convert to dictionaries for faster lookup
-          pre_counts = pre_synapses['pre_pt_root_id'].value_counts().to_dict()
-          post_counts = post_synapses['post_pt_root_id'].value_counts().to_dict()
-          
-          # Collect IDs with synapse counts above max_size
-          batch_results = []
-          for seg_id in batch:
-            total_synapses = pre_counts.get(seg_id, 0) + post_counts.get(seg_id, 0)
-            if total_synapses > min_no_of_synapses:
-              batch_results.append(seg_id)
-          
-          return batch_results
-
-        except TimeoutError:
-          retries += 1
-          if retries == 5:
-            raise Exception('Max retries reached after timeout for batch')
-          time.sleep(0.5)  # Wait 1 second before retrying
-
-    # Process each batch sequentially
-    for i in range(0, len(source_ids), BATCH_SIZE):
-      batch = source_ids[i:i + BATCH_SIZE]
-      batch_results = process_batch(batch)
-      results.extend(batch_results)
-      processed += len(batch)
-      callback(f'MSG:IN_PROGRESS:Processed {processed}/{total} IDs. Kept {len(results)} IDs so far.')
-
-    callback(f'MSG:COMPLETE:Completed processing {total} segments')
-    callback(sorted(results))
-    
-  except Exception as e:
-    callback(f'MSG:ERROR:Error: {str(e)}')
-'''
-
-def filter_by_no_of_fragments(source_ids, min_size, min_frags, max_frags, callback):
-  threading.Thread(target=lambda: filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags, callback), daemon=True).start()
-
-def filter_by_no_of_fragments_request(source_ids, min_size, min_frags, max_frags, callback, max_workers=100):
-  base_url = 'https://cave.fanc-fly.com/meshing/api/v1/table/wclee_fly_cns_001/manifest/'
-  headers = {
-    'Content-Type': 'application/json',
-    'Accept-Encoding': 'zstd',
-    'Authorization': f'Bearer {API_TOKEN}',
-    'Cookie': f'middle_auth_token={API_TOKEN}'
-  }
-
-  def check_fragments(seg_id, min_size=10000, min_frags=2, max_frags=100, max_retries=5):
-    url = f'{base_url}{seg_id}:0?verify=1&prepend_seg_ids=1'
-    retries = 0
-    while retries < max_retries:
-      try:
-        response = get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-          total_size = 0
-          fragments = response.json().get('fragments', [])
-          length = len(fragments)
-
-          if length > max_frags:
-            return { 'type': 'large', 'id': seg_id }
-          
-          for frag in fragments:
-            if '/' not in frag:
-              #return { 'type': 'small', 'id': seg_id } # ???
-              continue
-            total_size += int(frag.rsplit(':', 1)[-1])
-
-          if total_size >= min_size:
-            return { 'type': 'middle', 'id': seg_id }
-          
-          # if min_size is smaller than minimum, but the number of fragments is still equal/larger, than the min_frags
-          if length >= min_frags:
-            return { 'type': 'middle', 'id': seg_id }
-
-          return { 'type': 'small', 'id': seg_id }
-
-        elif response.status_code in {429, 500, 502, 503, 504}:
-          time.sleep(2 ** retries + random.random())
-          retries += 1
-        else:
-          break
-
-      except exceptions.RequestException:
-        time.sleep(2 ** retries)
-        retries += 1
-
-    return None
-
-  processed = 0
-  correct = 0
-  smaller = 0
-  larger = 0
-  total = len(source_ids)
-  results = {
-    'small': [],
-    'middle': [],
-    'large': []
-  }
-
-  with ThreadPoolExecutor(max_workers=max_workers) as executor:
-    future_to_seg = {executor.submit(check_fragments, seg_id, min_size, min_frags, max_frags): seg_id for seg_id in source_ids}
-
-    for future in as_completed(future_to_seg):  # Process completed requests first
-      result = future.result()
-      res_type = result['type']
-
-      results[res_type].append(result['id'])
-      
-      if res_type == 'small':
-        smaller += 1
-      elif res_type == 'middle':
-        correct += 1
-      elif res_type == 'large':
-        larger += 1
-
-
-      processed += 1
-
-      if processed % 1000 == 0:  # Cool-down after every 1000 processed requests
-        wait_time = random.uniform(1, 2)
-        callback(f'MSG:COOLDOWN:Pausing for {wait_time:.2f} seconds...')
-        time.sleep(wait_time)
-
-      if processed % 100 == 0:
-        callback(f'MSG:IN_PROGRESS:Processed: {processed}/{total}\nToo small: {smaller}\nCorrect size: {correct}\nToo large: {larger}')
-
-  callback(results)
-
-def filter_by_planes(source_ids, planes, callback):
-  threading.Thread(target=lambda: filter_by_planes_request(source_ids, planes, callback), daemon=True).start()
-
-def filter_by_planes_request(source_ids, planes, callback):
+def filter_by_planes_request(source_ids, planes, thresholds, callback):
   client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
   segid_to_leaves = {}
   lock = threading.Lock()
@@ -185,8 +27,7 @@ def filter_by_planes_request(source_ids, planes, callback):
     try:
       leaves = get_leaves(seg_ids)
       if leaves:
-        # Filter out any source_ids that have 10 or fewer leaves
-        return {seg_id: leaf_list for seg_id, leaf_list in leaves.items() if len(leaf_list) > 10}
+        return leaves
     except Exception:
       return None
     return None
@@ -205,18 +46,36 @@ def filter_by_planes_request(source_ids, planes, callback):
       if processed % 200 == 0 or processed == total:
         callback(f'MSG:IN_PROGRESS:Got leaves for {processed}/{total} segments')
 
-  # Only use eligible source_ids from segid_to_leaves for all further processing
-  source_to_leaves = segid_to_leaves.copy()
+  # Categorize source_ids based on number of leaves
+  smaller_threshold, larger_threshold = thresholds
+  smaller_source_ids = []
+  middle_source_ids = []
+  larger_source_ids = []
 
-  # If planes is empty or only whitespace, return all eligible source_ids as 'inside'
+  for source_id, leaf_list in segid_to_leaves.items():
+    num_leaves = len(leaf_list)
+    if num_leaves < smaller_threshold:
+      smaller_source_ids.append(source_id)
+    elif num_leaves > larger_threshold:
+      larger_source_ids.append(source_id)
+    else:
+      middle_source_ids.append(source_id)
+
+  # If no planes specified, return all results immediately
   if not planes or not planes.strip():
-    callback({'inside': list(source_to_leaves.keys()), 'outside': []})
+    callback({
+      'smaller': smaller_source_ids,
+      'middle': middle_source_ids,
+      'larger': larger_source_ids
+    })
     return
 
+  # Only process middle_source_ids against planes
   callback('MSG:IN_PROGRESS:Getting L2 centroids...')
   # Sample every 5th leaf to optimize processing
   sampled_leaves = []
-  for leaf_list in source_to_leaves.values():
+  for source_id in middle_source_ids:
+    leaf_list = segid_to_leaves[source_id]
     sampled_leaves.extend(leaf_list[::5])
 
   # Process L2 centroids in batches of 10000
@@ -276,12 +135,11 @@ def filter_by_planes_request(source_ids, planes, callback):
     p1 = p1_unscaled * scaling_factors
     plane_defs.append({'normal': normal, 'p1': p1})
 
-  inside_source_ids = []
-  outside_source_ids = []
+  inside_middle_ids = []
+  outside_middle_ids = []
 
   callback('MSG:IN_PROGRESS:Pre-computing valid leaf coordinates...')
   # Pre-compute all valid leaf coordinates for faster lookup
-  # Convert DataFrame to dictionary first for faster lookups
   coords_dict = {
     str(idx): row[['x', 'y', 'z']].values 
     for idx, row in df_valid.iterrows()
@@ -290,7 +148,7 @@ def filter_by_planes_request(source_ids, planes, callback):
   # Create valid_coords dictionary using the pre-computed coords_dict
   valid_coords = {
     str(leaf_id): coords_dict[str(leaf_id)]
-    for leaf_id in set().union(*source_to_leaves.values())
+    for leaf_id in set().union(*[segid_to_leaves[source_id] for source_id in middle_source_ids])
     if str(leaf_id) in coords_dict
   }
 
@@ -311,16 +169,21 @@ def filter_by_planes_request(source_ids, planes, callback):
           return source_id, False
       return source_id, True
 
-    futures = [executor.submit(process_source, source_id, leaf_list) 
-              for source_id, leaf_list in source_to_leaves.items()]
+    futures = [executor.submit(process_source, source_id, segid_to_leaves[source_id]) 
+              for source_id in middle_source_ids]
 
     for future in as_completed(futures):
       source_id, is_inside = future.result()
       if is_inside:
-        inside_source_ids.append(source_id)
+        inside_middle_ids.append(source_id)
       else:
-        outside_source_ids.append(source_id)
-  callback({'inside': inside_source_ids, 'outside': outside_source_ids})
+        outside_middle_ids.append(source_id)
+
+  callback({
+    'smaller': smaller_source_ids,
+    'middle': inside_middle_ids,
+    'larger': larger_source_ids
+  })
   return
 
 def get_leaves(seg_ids):
