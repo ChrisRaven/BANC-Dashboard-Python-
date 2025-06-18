@@ -51,9 +51,13 @@ def filter_by_planes_request(source_ids, planes, thresholds, callback):
   smaller_source_ids = []
   middle_source_ids = []
   larger_source_ids = []
+  
+  # Collect leaf count data for histogram
+  leaf_counts = []
 
   for source_id, leaf_list in segid_to_leaves.items():
     num_leaves = len(leaf_list)
+    leaf_counts.append(num_leaves)
     if num_leaves < smaller_threshold:
       smaller_source_ids.append(source_id)
     elif num_leaves > larger_threshold:
@@ -66,7 +70,8 @@ def filter_by_planes_request(source_ids, planes, thresholds, callback):
     callback({
       'smaller': smaller_source_ids,
       'middle': middle_source_ids,
-      'larger': larger_source_ids
+      'larger': larger_source_ids,
+      'leaf_counts': leaf_counts
     })
     return
 
@@ -182,7 +187,8 @@ def filter_by_planes_request(source_ids, planes, thresholds, callback):
   callback({
     'smaller': smaller_source_ids,
     'middle': inside_middle_ids,
-    'larger': larger_source_ids
+    'larger': larger_source_ids,
+    'leaf_counts': leaf_counts
   })
   return
 
