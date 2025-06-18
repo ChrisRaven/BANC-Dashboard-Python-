@@ -97,17 +97,46 @@ def _get_directional_SP(source_ids, callback, direction, raw=False):
     BATCH_SIZE = 50
     key_query = 'pre_ids' if direction == 'downstream' else 'post_ids'
     key_result = 'post_pt_root_id' if direction == 'downstream' else 'pre_pt_root_id'
-    result = pd.DataFrame()
     total_batches = (len(source_ids) + BATCH_SIZE - 1) // BATCH_SIZE
-    for batch_index, i in enumerate(range(0, len(source_ids), BATCH_SIZE), start=1):
-      batch = source_ids[i:i + BATCH_SIZE]
-      callback({
-        'status': Status.IN_PROGRESS,
-        'content': f'Processing batch {batch_index} of {total_batches} ({direction})...'
-      })
-      result = pd.concat([result, client.materialize.synapse_query(**{key_query: batch})], ignore_index=True)
-    if not result.empty:
-      final_result = result if raw else result[key_result]
+    processed_batches = 0
+    results = []
+    lock = threading.Lock()
+
+    def process_batch(batch_index, batch):
+      try:
+        batch_result = client.materialize.synapse_query(**{key_query: batch})
+        with lock:
+          nonlocal processed_batches
+          processed_batches += 1
+          callback({
+            'status': Status.IN_PROGRESS,
+            'content': f'Processing batch {processed_batches} of {total_batches} ({direction})...'
+          })
+        return batch_result
+      except Exception as e:
+        callback({
+          'status': Status.ERROR,
+          'content': f'Error processing batch {batch_index}: {repr(e)}'
+        })
+        return pd.DataFrame()
+
+    # Create batches
+    batches = [(i, source_ids[i:i + BATCH_SIZE]) for i in range(0, len(source_ids), BATCH_SIZE)]
+    
+    # Process batches in parallel
+    with ThreadPoolExecutor(max_workers=10) as executor:
+      futures = [executor.submit(process_batch, batch_index, batch) 
+                for batch_index, batch in batches]
+      
+      for future in as_completed(futures):
+        batch_result = future.result()
+        if not batch_result.empty:
+          results.append(batch_result)
+
+    if results:
+      final_result = pd.concat(results, ignore_index=True)
+      if not raw:
+        final_result = final_result[key_result]
       callback({
         'status': Status.FINISHED,
         'content': final_result
