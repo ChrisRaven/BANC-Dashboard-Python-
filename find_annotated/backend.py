@@ -52,7 +52,7 @@ def make_request(table_name, callback, return_result=False):
     if 'application/json' in content_type:
       try:
         json_data = response.json()
-        callback(json_data['message'])
+        callback('ERR:' + json_data['message'])
       except json.JSONDecodeError:
         callback('ERR:Error decoding JSON')
     else:
