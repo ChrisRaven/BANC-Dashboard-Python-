@@ -17,8 +17,7 @@ def create_annotated_section(root):
       return
 
     if isinstance(msg, str) and msg.startswith('ERR:'):
-      results.insert('1.0', msg.replace('ERR:', ''))
-      results.insert('1.0', '')
+      insert(results, msg.replace('ERR:', ''))
       status_label.configure(text='')
     else:
       status_label.configure(text=f'Found {msg} annotations')
