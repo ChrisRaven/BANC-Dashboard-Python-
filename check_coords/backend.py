@@ -29,7 +29,7 @@ def check_coords_request(data, callback):
     else:
       invalid_segment_ids.append(segment_id)
 
-  valid_coords = ';'.join([','.join(map(str, coord)) for coord in valid_coords])
+  valid_coords = ';'.join([','.join(map(str, coord)) for coord in valid_coords]) + ';'
   callback(valid_coords, invalid_segment_ids)
 
 
