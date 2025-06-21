@@ -9,10 +9,7 @@ import threading
 from api_token import API_TOKEN
 from constants import *
 from functools import partial
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from requests import get, exceptions
-import random
 
 
 data = {
