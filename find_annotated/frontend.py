@@ -117,6 +117,10 @@ def create_annotated_section(root):
   table_frame = widgets.frame(parent=frame)
   table_frame.pack_forget()  # Initially hidden
 
+#import banc
+#client = banc.auth.CAVEclient()
+#print(client.auth.get_user_information([392]))
+
 
   usernames = {
     "2": "Sven Dorkenwald",

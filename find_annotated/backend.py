@@ -28,7 +28,7 @@ def make_request(table_name, skip_queued, callback, return_result=False):
       'allow_missing_lookups': str(skip_queued),
       'allow_invalid_root_ids': 'False'
     }
-    print(params)
+
     headers = {
       'Content-Type': 'application/json',
       'Accept-Encoding': 'zstd',
