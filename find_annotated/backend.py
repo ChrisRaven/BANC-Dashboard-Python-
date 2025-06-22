@@ -14,10 +14,10 @@ from utils.backend import *
 
 entries_result = None
 
-def get_entries(table_name, callback, return_result=False):
-  threading.Thread(target=lambda: make_request(table_name, callback, return_result), daemon=True).start()
+def get_entries(table_name, skip_queued, callback, return_result=False):
+  threading.Thread(target=lambda: make_request(table_name, skip_queued, callback, return_result), daemon=True).start()
 
-def make_request(table_name, callback, return_result=False):
+def make_request(table_name, skip_queued, callback, return_result=False):
   global entries_result
   try:
     url = 'https://cave.fanc-fly.com/materialize/api/v3/datastack/brain_and_nerve_cord/query'
@@ -25,10 +25,10 @@ def make_request(table_name, callback, return_result=False):
       'return_pyarrow': 'True',
       'arrow_format': 'True', 
       'merge_reference': 'False',
-      'allow_missing_lookups': 'False',
+      'allow_missing_lookups': str(skip_queued),
       'allow_invalid_root_ids': 'False'
     }
-    
+    print(params)
     headers = {
       'Content-Type': 'application/json',
       'Accept-Encoding': 'zstd',

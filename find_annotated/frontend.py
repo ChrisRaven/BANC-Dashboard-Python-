@@ -10,6 +10,16 @@ def create_annotated_section(root):
   frame = ctk.CTkFrame(root, width=FRAME_WIDTH, height=FRAME_HEIGHT)
   frame.pack(fill='x')
 
+  widgets.spacer(parent=frame, height=20)
+
+  skip_queued = ctk.BooleanVar(value=False)
+  skip_queued_checkbox = ctk.CTkCheckBox(
+    frame,
+    text="skip queued",
+    variable=skip_queued
+  )
+  skip_queued_checkbox.pack(anchor='w', padx=(PADDING_X + 20, 0))
+
   def get_all_annotations_callback(msg):
     hide_loading_indicator()
     if not msg:
@@ -25,9 +35,7 @@ def create_annotated_section(root):
   def get_all_annotations_handler():
     show_loading_indicator(root)
     status_label.configure(text=f'Fetching annotations...')
-    get_entries('cell_info', get_all_annotations_callback)
-
-  widgets.spacer(parent=frame, height=20)
+    get_entries('cell_info', skip_queued.get(), get_all_annotations_callback)
 
   widgets.button(
     parent=frame,

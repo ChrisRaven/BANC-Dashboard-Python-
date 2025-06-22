@@ -90,7 +90,7 @@ def _get_SP_thread(source_ids, callback, direction='downstream', raw=False):
 
 def _get_directional_SP(source_ids, callback, direction, raw=False):
   try:
-    client = CAVEclient(datastack_name='brain_and_nerve_cord', auth_token=API_TOKEN)
+    client = CAVEclient(datastack_name='brain_and_nerve_cord')
     BATCH_SIZE = 50
     key_query = 'pre_ids' if direction == 'downstream' else 'post_ids'
     key_result = 'post_pt_root_id' if direction == 'downstream' else 'pre_pt_root_id'

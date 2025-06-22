@@ -17,7 +17,7 @@ def filter_by_planes(source_ids, planes, thresholds, callback):
   threading.Thread(target=lambda: filter_by_planes_request(source_ids, planes, thresholds, callback), daemon=True).start()
 
 def filter_by_planes_request(source_ids, planes, thresholds, callback):
-  client = CAVEclient('brain_and_nerve_cord', auth_token=API_TOKEN)
+  client = CAVEclient('brain_and_nerve_cord')
   segid_to_leaves = {}
   lock = threading.Lock()
   total = len(source_ids)
