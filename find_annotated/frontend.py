@@ -351,31 +351,31 @@ def create_annotated_section(root):
         if line:
           user_id = line.split(':')[0].replace('User ', '').strip()
           count = line.split(':')[1].strip().replace(' annotations', '')
-          
           row = ctk.CTkFrame(scroll_frame)
           row.pack(fill='x', pady=2)
-          
-          # Add position number
           ctk.CTkLabel(
             row,
             text=f"{i}.",
             width=30
           ).pack(side='left', padx=5)
-          
-          # Display username if available, otherwise user ID
           display_name = usernames.get(user_id, user_id)
-          
-          ctk.CTkLabel(
+          # Make the username label clickable
+          user_label = ctk.CTkLabel(
             row,
             text=display_name,
-            width=150
-          ).pack(side='left', padx=5)
-          
+            width=150,
+            cursor="hand2",
+            text_color="#1E90FF"
+          )
+          user_label.pack(side='left', padx=5)
           ctk.CTkLabel(
             row,
             text=count,
             width=100
           ).pack(side='left', padx=5)
+          # Import and bind the user annotation window
+          from .user_annotations_window import open_user_annotations_window
+          user_label.bind("<Button-1>", lambda e, uid=user_id, uname=display_name: open_user_annotations_window(uid, uname))
       table_frame.pack(fill='x', padx=10, pady=5)
 
     get_user_annotation_counts(callback)
