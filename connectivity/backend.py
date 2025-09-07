@@ -206,7 +206,7 @@ def get_clusters_thread(input_ids, callback, eps):
       root_ids = root_ids[mask].astype(np.int64)
       get_partners()
 
-  get_entries('cell_info', process_entries, return_result=True)
+  get_entries('cell_info', True, process_entries, return_result=True)
 
 def _perform_clustering(merged_partners, callback, eps):
   global _current_partner_data
