@@ -111,6 +111,9 @@ class BlameWindow(ctk.CTkToplevel):
     self.tree.configure(yscroll=scrollbar.set)
     scrollbar.pack(side='right', fill='y', pady=5)
     
+    # Bind Ctrl+C to copy selected IDs
+    self.tree.bind('<Control-c>', self._copy_selected_ids)
+
     # Pagination controls
     pagination_frame = ctk.CTkFrame(main_frame)
     pagination_frame.pack(fill='x', pady=(0, 10))
@@ -309,6 +312,19 @@ class BlameWindow(ctk.CTkToplevel):
     self.current_page = 0
     self._refresh_table()
 
+  def _copy_selected_ids(self, event=None):
+    """Copy IDs of selected rows to clipboard, removing duplicates."""
+    selected_ids = []
+    for item in self.tree.selection():
+      values = self.tree.item(item, 'values')
+      if values:
+        selected_ids.append(str(values[0])) # First column is ID
+    
+    if selected_ids:
+      unique_ids = sorted(list(set(selected_ids)), key=int) # Sort numerically
+      self.clipboard_clear()
+      self.clipboard_append('\n'.join(unique_ids))
+      
   def _copy_visible(self):
     """Copy all visible IDs to clipboard"""
     visible_ids = []
