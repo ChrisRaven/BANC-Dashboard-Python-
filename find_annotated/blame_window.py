@@ -198,7 +198,13 @@ class BlameWindow(ctk.CTkToplevel):
       filtered_data = entries_result[mask].copy()
       filtered_data['author'] = filtered_data['user_id'].astype(str).map(usernames).fillna(filtered_data['user_id'].astype(str))
       
-      self.df_all = filtered_data[['pt_root_id', 'tag', 'author']].copy()
+      # Group by pt_root_id and concatenate tags and authors
+      grouped_data = filtered_data.groupby('pt_root_id').agg(
+          tag=('tag', lambda x: ', '.join(sorted(x.unique()))),
+          author=('author', lambda x: ', '.join(sorted(x.unique())))
+      ).reset_index()
+
+      self.df_all = grouped_data[['pt_root_id', 'tag', 'author']].copy()
       self.df_all.columns = ['id', 'label', 'author']
     # Apply initial filtering
     self.current_page = 0
