@@ -146,9 +146,17 @@ class UserAnnotationsWindow(ctk.CTkToplevel):
     self.page_label.configure(text=f"Page {self.current_page+1} of {total_pages} ({total} entries)")
 
   def _on_search(self):
-    query = self.search_var.get().strip().lower()
+    query = self.search_var.get().strip()
     if query:
-      mask = self.df_all["tag"].astype(str).str.lower().str.contains(query, na=False)
+      # Check if query is wrapped in double quotes for exact match
+      if query.startswith('"') and query.endswith('"') and len(query) > 2:
+        # Extract text inside quotes and perform exact match
+        exact_query = query[1:-1].lower()
+        mask = self.df_all["tag"].astype(str).str.lower() == exact_query
+      else:
+        # Perform substring search (current behavior)
+        query_lower = query.lower()
+        mask = self.df_all["tag"].astype(str).str.lower().str.contains(query_lower, na=False)
       self.df_filtered = self.df_all[mask].copy()
     else:
       self.df_filtered = self.df_all.copy()
