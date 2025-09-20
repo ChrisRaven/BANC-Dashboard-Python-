@@ -136,8 +136,8 @@ class BlameWindow(ctk.CTkToplevel):
     # Copy button
     copy_button = ctk.CTkButton(
       main_frame,
-      text="Copy visible",
-      command=self._copy_visible,
+      text="Copy IDs",
+      command=self._copy_all_ids,
       height=30
     )
     copy_button.pack(pady=5)
@@ -318,6 +318,14 @@ class BlameWindow(ctk.CTkToplevel):
     self.current_page = 0
     self._refresh_table()
 
+  def _copy_all_ids(self):
+    """Copy all IDs from all filtered pages to clipboard, removing duplicates."""
+    if not self.df_filtered.empty:
+      all_ids = self.df_filtered['id'].tolist()
+      unique_ids = sorted(list(set(all_ids)), key=int)
+      self.clipboard_clear()
+      self.clipboard_append('\n'.join(map(str, unique_ids)))
+    
   def _copy_selected_ids(self, event=None):
     """Copy IDs of selected rows to clipboard, removing duplicates."""
     selected_ids = []
