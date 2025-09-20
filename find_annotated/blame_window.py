@@ -4,7 +4,9 @@ from tkinter import ttk
 import pandas as pd
 from utils.frontend import *
 from utils.backend import *
+import re
 from .backend import entries_result
+from .frontend import usernames
 
 # Default page size
 DEFAULT_PAGE_SIZE = 50
@@ -191,51 +193,80 @@ class BlameWindow(ctk.CTkToplevel):
       # Filter by the entered IDs
       mask = entries_result['pt_root_id'].isin(ids)
       filtered_data = entries_result[mask].copy()
-      
-      # Get user names (you might need to implement this mapping)
-      usernames = self._get_usernames()
       filtered_data['author'] = filtered_data['user_id'].astype(str).map(usernames).fillna(filtered_data['user_id'].astype(str))
       
       self.df_all = filtered_data[['pt_root_id', 'tag', 'author']].copy()
       self.df_all.columns = ['id', 'label', 'author']
-      print(self.df_all)
     # Apply initial filtering
-    self._apply_filters()
     self.current_page = 0
+    self._apply_filters()
     self._refresh_table()
 
-  def _get_usernames(self):
-    """Get username mapping from the frontend module"""
-    from .frontend import usernames
-    return usernames
-
   def _apply_filters(self):
-    """Apply label and author filters"""
     self.df_filtered = self.df_all.copy()
     
-    # Filter by label
+    def apply_single_filter(df, column, query_string):
+      if not query_string:
+        return df
+
+      # Split the query string into tokens, preserving quoted phrases
+      # This regex finds either a sequence of non-whitespace characters
+      # or a sequence of characters inside double quotes (including spaces)
+      # We now extract the actual content directly in the list comprehension.
+      raw_tokens_groups = re.findall(r'"([^"]*)"|(\S+)', query_string)
+      
+      tokens_with_type = []
+      for g1, g2 in raw_tokens_groups:
+          if g1: # Matched a quoted string
+              tokens_with_type.append((g1.strip(), True)) # (content, is_exact_match)
+          elif g2: # Matched a non-quoted string
+              tokens_with_type.append((g2.strip(), False))
+      
+      filtered_df = df.copy()
+
+      for token_content, is_exact_match_candidate in tokens_with_type:
+        if not token_content:
+            continue
+
+        is_exclude = token_content.startswith('-')
+        search_term = token_content[1:] if is_exclude else token_content
+
+        if not search_term: # Skip if only '-' was entered without a term
+            continue
+
+        # If it was originally a quoted phrase, it's an exact match.
+        # If not, but it starts/ends with quotes now (e.g., user typed -"phrase")
+        # then treat it as an exact match as well and strip quotes.
+        is_actual_exact_match = is_exact_match_candidate or \
+                               (search_term.startswith('"') and search_term.endswith('"') and len(search_term) > 1)
+        
+        if is_actual_exact_match:
+            # Strip quotes if they are still present after previous processing (e.g. from - "phrase")
+            if search_term.startswith('"') and search_term.endswith('"'):
+                search_term = search_term[1:-1]
+            if not search_term: # Handle cases like `""` or `-" "` after stripping
+                continue
+            if is_exclude:
+                mask = filtered_df[column].astype(str) != search_term
+            else:
+                mask = filtered_df[column].astype(str) == search_term
+        else:
+          # Contains match (case-insensitive)
+          if is_exclude:
+            mask = ~filtered_df[column].astype(str).str.contains(search_term, case=False, na=False)
+          else:
+            mask = filtered_df[column].astype(str).str.contains(search_term, case=False, na=False)
+        
+        filtered_df = filtered_df[mask]
+      return filtered_df
+
+    # Apply label filter
     label_query = self.label_search_var.get().strip()
-    if label_query:
-      if label_query.startswith('"') and label_query.endswith('"') and len(label_query) > 2:
-        # Exact match
-        exact_query = label_query[1:-1]
-        mask = self.df_filtered["label"].astype(str) == exact_query
-      else:
-        # Contains match
-        mask = self.df_filtered["label"].astype(str).str.contains(label_query, case=False, na=False)
-      self.df_filtered = self.df_filtered[mask]
+    self.df_filtered = apply_single_filter(self.df_filtered, "label", label_query)
     
-    # Filter by author
+    # Apply author filter
     author_query = self.author_search_var.get().strip()
-    if author_query:
-      if author_query.startswith('"') and author_query.endswith('"') and len(author_query) > 2:
-        # Exact match
-        exact_query = author_query[1:-1]
-        mask = self.df_filtered["author"].astype(str) == exact_query
-      else:
-        # Contains match
-        mask = self.df_filtered["author"].astype(str).str.contains(author_query, case=False, na=False)
-      self.df_filtered = self.df_filtered[mask]
+    self.df_filtered = apply_single_filter(self.df_filtered, "author", author_query)
 
   def _on_search(self):
     """Handle search input changes"""
