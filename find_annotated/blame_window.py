@@ -28,6 +28,10 @@ class BlameWindow(ctk.CTkToplevel):
     self.label_search_var = tk.StringVar()
     self.author_search_var = tk.StringVar()
     
+    # Sorting variables
+    self.sort_column = None
+    self.sort_reverse = False
+    
     self._build_ui()
     
     # If initial IDs are provided, populate the textbox and run _show_labels
@@ -104,9 +108,9 @@ class BlameWindow(ctk.CTkToplevel):
     
     # Create table
     self.tree = ttk.Treeview(table_frame, columns=("id", "label", "author"), show='headings', height=10)
-    self.tree.heading("id", text="ID")
-    self.tree.heading("label", text="Label")
-    self.tree.heading("author", text="Author")
+    self.tree.heading("id", text="ID", command=lambda: self._sort_by_column("id"))
+    self.tree.heading("label", text="Label", command=lambda: self._sort_by_column("label"))
+    self.tree.heading("author", text="Author", command=lambda: self._sort_by_column("author"))
     self.tree.column("id", width=150)
     self.tree.column("label", width=300)
     self.tree.column("author", width=200)
@@ -305,6 +309,9 @@ class BlameWindow(ctk.CTkToplevel):
     for _, row in page_df.iterrows():
       self.tree.insert('', 'end', values=(row["id"], row["label"], row["author"]))
     
+    # Update column headers to show sort indicators
+    self._update_column_headers()
+    
     # Update page label
     total_pages = max(1, (total + self.page_size - 1) // self.page_size)
     self.page_label.configure(text=f"Page {self.current_page+1} of {total_pages} ({total} entries)")
@@ -356,6 +363,46 @@ class BlameWindow(ctk.CTkToplevel):
     if visible_ids:
       self.clipboard_clear()
       self.clipboard_append('\n'.join(visible_ids))
+
+  def _sort_by_column(self, col):
+    """Sort the table by the specified column"""
+    # Determine if we're reversing the sort
+    if self.sort_column == col:
+      self.sort_reverse = not self.sort_reverse
+    else:
+      self.sort_column = col
+      self.sort_reverse = False
+    
+    # Sort the filtered dataframe
+    if not self.df_filtered.empty:
+      if col == "id":
+        # Sort IDs numerically
+        self.df_filtered = self.df_filtered.sort_values(
+          by='id', 
+          key=lambda x: x.astype(int), 
+          ascending=not self.sort_reverse
+        )
+      else:
+        # Sort other columns alphabetically
+        self.df_filtered = self.df_filtered.sort_values(
+          by=col, 
+          ascending=not self.sort_reverse
+        )
+      
+      # Reset to first page and refresh
+      self.current_page = 0
+      self._refresh_table()
+      self._update_column_headers()
+
+  def _update_column_headers(self):
+    """Update column headers to show sort indicators"""
+    columns = ["id", "label", "author"]
+    for col in columns:
+      header_text = col.capitalize()
+      if self.sort_column == col:
+        indicator = " ↓" if self.sort_reverse else " ↑"
+        header_text += indicator
+      self.tree.heading(col, text=header_text)
 
 def open_blame_window(initial_ids=None):
   BlameWindow(initial_ids)
