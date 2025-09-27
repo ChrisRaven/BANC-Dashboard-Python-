@@ -13,7 +13,7 @@ DEFAULT_PAGE_SIZE = 50
 PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
 
 class BlameWindow(ctk.CTkToplevel):
-  def __init__(self):
+  def __init__(self, initial_ids=None):
     super().__init__()
     self.title("Blame")
     self.geometry("800x700")
@@ -29,6 +29,12 @@ class BlameWindow(ctk.CTkToplevel):
     self.author_search_var = tk.StringVar()
     
     self._build_ui()
+    
+    # If initial IDs are provided, populate the textbox and run _show_labels
+    if initial_ids:
+      self.ids_textbox.delete('1.0', 'end')
+      self.ids_textbox.insert('1.0', initial_ids)
+      self._show_labels()
     
     # Set up cleanup on window close
     def cleanup_and_close():
@@ -351,5 +357,5 @@ class BlameWindow(ctk.CTkToplevel):
       self.clipboard_clear()
       self.clipboard_append('\n'.join(visible_ids))
 
-def open_blame_window():
-  BlameWindow()
+def open_blame_window(initial_ids=None):
+  BlameWindow(initial_ids)

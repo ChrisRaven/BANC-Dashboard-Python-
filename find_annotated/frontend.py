@@ -400,7 +400,15 @@ def create_annotated_section(root):
 
   def show_blame_window():
     from .blame_window import open_blame_window
-    open_blame_window()
+    
+    # Check if results textbox has any content
+    results_text = results.get('1.0', 'end-1c').strip()
+    if results_text:
+      # Pass the IDs from results textbox to the blame window
+      open_blame_window(results_text)
+    else:
+      # Open empty blame window if no results
+      open_blame_window()
 
   widgets.button(
     parent=blame_column,
