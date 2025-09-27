@@ -208,14 +208,54 @@ class BlameWindow(ctk.CTkToplevel):
       filtered_data = entries_result[mask].copy()
       filtered_data['author'] = filtered_data['user_id'].astype(str).map(usernames).fillna(filtered_data['user_id'].astype(str))
       
-      # Group by pt_root_id and concatenate tags and authors
-      grouped_data = filtered_data.groupby('pt_root_id').agg(
-          tag=('tag', lambda x: ', '.join(sorted(x.unique()))),
-          author=('author', lambda x: ', '.join(sorted(x.unique())))
-      ).reset_index()
+      # Group by pt_root_id and create proper label-author mappings with counts
+      def format_labels_and_authors(group):
+        # Get all tag-author pairs for this ID
+        tag_author_pairs = list(zip(group['tag'], group['author']))
+        
+        # Create label string (sorted unique labels)
+        unique_labels = sorted(list(set(group['tag'])))
+        labels_str = ', '.join(unique_labels)
+        
+        # Create author string showing authors in order with counts for consecutive appearances
+        author_list = []
+        current_author = None
+        consecutive_count = 0
+        
+        for tag, author in tag_author_pairs:
+          if author == current_author:
+            # Same author as previous, increment count
+            consecutive_count += 1
+          else:
+            # Different author, add previous author to list (if any)
+            if current_author is not None:
+              if consecutive_count > 1:
+                author_list.append(f"{current_author} ({consecutive_count})")
+              else:
+                author_list.append(current_author)
+            
+            # Start counting new author
+            current_author = author
+            consecutive_count = 1
+        
+        # Add the last author to the list
+        if current_author is not None:
+          if consecutive_count > 1:
+            author_list.append(f"{current_author} ({consecutive_count})")
+          else:
+            author_list.append(current_author)
+        
+        authors_str = ', '.join(author_list)
+        
+        return pd.Series({
+          'tag': labels_str,
+          'author': authors_str
+        })
+      
+      grouped_data = filtered_data.groupby('pt_root_id').apply(format_labels_and_authors).reset_index()
+      grouped_data.columns = ['id', 'label', 'author']
 
-      self.df_all = grouped_data[['pt_root_id', 'tag', 'author']].copy()
-      self.df_all.columns = ['id', 'label', 'author']
+      self.df_all = grouped_data[['id', 'label', 'author']].copy()
     # Apply initial filtering
     self.current_page = 0
     self._apply_filters()
