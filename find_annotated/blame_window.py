@@ -203,47 +203,50 @@ class BlameWindow(ctk.CTkToplevel):
     if entries_result is None or not isinstance(entries_result, pd.DataFrame):
       self.df_all = pd.DataFrame(columns=["pt_root_id", "tag", "user_id"])
     else:
-      # Filter by the entered IDs
+      # Filter by the entered IDs and preserve original order
       mask = entries_result['pt_root_id'].isin(ids)
       filtered_data = entries_result[mask].copy()
       filtered_data['author'] = filtered_data['user_id'].astype(str).map(usernames).fillna(filtered_data['user_id'].astype(str))
       
       # Group by pt_root_id and create proper label-author mappings with counts
       def format_labels_and_authors(group):
-        # Get all tag-author pairs for this ID
-        tag_author_pairs = list(zip(group['tag'], group['author']))
+        # Sort by the original index to maintain the order from the source data
+        sorted_group = group.sort_index()
+        # Get all tag-author pairs for this ID in the correct order
+        tag_author_pairs = list(zip(sorted_group['tag'], sorted_group['author']))
         
-        # Create label string (sorted unique labels)
-        unique_labels = sorted(list(set(group['tag'])))
+        # Create label string (preserve original order, remove duplicates)
+        seen_labels = set()
+        unique_labels = []
+        for tag, author in tag_author_pairs:
+          if tag not in seen_labels:
+            unique_labels.append(tag)
+            seen_labels.add(tag)
         labels_str = ', '.join(unique_labels)
         
         # Create author string showing authors in order with counts for consecutive appearances
         author_list = []
-        current_author = None
-        consecutive_count = 0
         
-        for tag, author in tag_author_pairs:
-          if author == current_author:
-            # Same author as previous, increment count
+        # Process tag-author pairs in order
+        i = 0
+        while i < len(tag_author_pairs):
+          current_author = tag_author_pairs[i][1]
+          consecutive_count = 1
+          
+          # Count consecutive occurrences of the same author
+          j = i + 1
+          while j < len(tag_author_pairs) and tag_author_pairs[j][1] == current_author:
             consecutive_count += 1
-          else:
-            # Different author, add previous author to list (if any)
-            if current_author is not None:
-              if consecutive_count > 1:
-                author_list.append(f"{current_author} ({consecutive_count})")
-              else:
-                author_list.append(current_author)
-            
-            # Start counting new author
-            current_author = author
-            consecutive_count = 1
-        
-        # Add the last author to the list
-        if current_author is not None:
+            j += 1
+          
+          # Add author to list with count if > 1
           if consecutive_count > 1:
             author_list.append(f"{current_author} ({consecutive_count})")
           else:
             author_list.append(current_author)
+          
+          # Move to next different author
+          i = j
         
         authors_str = ', '.join(author_list)
         
